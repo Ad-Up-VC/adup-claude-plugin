@@ -11,13 +11,13 @@ Facebook Ads · Google Ads · Google Analytics 4 · Google Search Console · Lin
 ### Option 1: Install from GitHub (recommended)
 
 ```bash
-claude plugin install adup-io/adup-claude-plugin
+claude plugin install Ad-Up-VC/adup-claude-plugin
 ```
 
 ### Option 2: Clone and install locally
 
 ```bash
-git clone https://github.com/adup-io/adup-claude-plugin.git
+git clone https://github.com/Ad-Up-VC/adup-claude-plugin.git
 claude plugin install adup --plugin-dir ./adup-claude-plugin
 ```
 
