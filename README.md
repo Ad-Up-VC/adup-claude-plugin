@@ -1,42 +1,30 @@
 # ADUP — Claude Code Plugin
 
-Query your entire marketing stack with natural language directly from Claude Code. Powered by [ADUP](https://adup.io).
+Query your marketing stack with natural language directly from Claude Code.
 
 ## Connected platforms
 
-Facebook Ads · Google Ads · Google Analytics 4 · Google Search Console · LinkedIn Ads · TikTok Ads · HubSpot · Intercom
+Facebook Ads · Google Ads · Google Analytics 4 · Google Search Console · LinkedIn Ads · HubSpot · Intercom
 
-## Installation
+## Quick start
 
-### Option 1: Install from GitHub (recommended)
-
-```bash
-claude plugin install Ad-Up-VC/adup-claude-plugin
-```
-
-### Option 2: Clone and install locally
+### 1. Install the plugin
 
 ```bash
-git clone https://github.com/Ad-Up-VC/adup-claude-plugin.git
-claude plugin install adup --plugin-dir ./adup-claude-plugin
+claude plugin install adup --plugin-dir /path/to/adup-claude-plugin
 ```
 
-### Option 3: Add the MCP server directly
+### 2. Set up your API key
 
-```bash
-claude mcp add adup --transport http https://tara-gateway-vc-v2wpc.ondigitalocean.app/mcp \
-  --header "Authorization: Bearer $ADUP_API_KEY"
+Once installed, run the setup skill — it will walk you through entering your API key and save it automatically:
+
+```
+/adup:setup
 ```
 
-### Set your API key
+Get your API key from [tara-vc.adup.io/settings/api](https://tara-vc.adup.io/settings/api).
 
-```bash
-export ADUP_API_KEY=your_adup_api_key_here
-```
-
-Get your API key from your [ADUP dashboard](https://app.adup.io) or during onboarding.
-
-### Verify connection
+### 3. Verify connection
 
 ```
 /adup:connect
@@ -44,26 +32,41 @@ Get your API key from your [ADUP dashboard](https://app.adup.io) or during onboa
 
 ## Available skills
 
+### Setup & Connection
 | Skill | Command | Description |
 |-------|---------|-------------|
+| Setup | `/adup:setup` | Configure your API key (run once after install) |
 | Connect | `/adup:connect` | Verify connection and see available shops |
 | Shop Select | `/adup:shop-select` | Switch active client (agencies) |
+
+### Analysis
+| Skill | Command | Description |
+|-------|---------|-------------|
 | Ads Overview | `/adup:ads-overview` | Quick cross-platform ad summary |
 | Facebook Ads | `/adup:facebook-ads` | Facebook & Instagram analysis |
 | Google Ads | `/adup:google-ads` | Search, Shopping, PMax analysis |
 | Analytics | `/adup:analytics` | GA4 web analytics & e-commerce |
 | Cross-Platform | `/adup:cross-platform` | Unified marketing dashboard |
-| Ad Fatigue | `/adup:ad-fatigue` | Daily fatigue check across Meta, TikTok, Google Ads, LinkedIn |
+| Budget Tracker | `/adup:budget-tracker` | Monitor budget pacing, flag over/underspend |
+| Ad Fatigue | `/adup:ad-fatigue` | Detect creative fatigue and propose responses |
+| Creative Intelligence | `/adup:creative-intelligence` | Score creative performance, build playbooks |
 
-## Built-in AI analyst
+### Actions (via middleware — all proposals require approval)
+| Skill | Command | Description |
+|-------|---------|-------------|
+| Optimize Budget | `/adup:optimize-budget` | Propose budget increases/decreases with data |
+| Manage Status | `/adup:manage-status` | Propose pausing/activating campaigns, ad sets, ads |
+| Create Ads | `/adup:create-ads` | Propose new ad creation within existing ad sets |
+| Google Optimize | `/adup:google-optimize` | Propose Google Ads budget, status & RSA changes |
+| LinkedIn Optimize | `/adup:linkedin-optimize` | Propose LinkedIn budget, status & creative changes |
+| TikTok Optimize | `/adup:tiktok-optimize` | Propose TikTok budget & status changes |
 
-The plugin includes an ADUP Analyst agent — a senior performance marketing analyst that proactively surfaces insights, anomalies, and recommendations across all your connected platforms.
-
-```
-@adup-analyst What's wrong with the Facebook account? ROAS has been dropping.
-@adup-analyst Build me a monthly report for Nike NL.
-@adup-analyst Compare Meta vs Google performance for Q1.
-```
+### Reporting
+| Skill | Command | Description |
+|-------|---------|-------------|
+| Monday Briefing | `/adup:monday-briefing` | Per-client executive summary with wins & concerns |
+| Client Report | `/adup:client-report` | Client-ready report with talking points |
+| Anomaly Alerts | `/adup:anomaly-alerts` | Detect spend spikes, delivery stops, CTR drops |
 
 ## Usage examples
 
@@ -81,16 +84,17 @@ Show me an overview for all my clients.
 Compare Facebook vs Google for Adidas EU.
 ```
 
+### Using the analyst agent
+```
+@adup-analyst What's wrong with the Facebook account? ROAS has been dropping.
+@adup-analyst Build me a monthly report for Nike NL.
+```
+
 ## Requirements
 
 - Claude Code 1.0.0+
-- Active ADUP account — [app.adup.io](https://app.adup.io)
+- Active ADUP account — [tara-vc.adup.io](https://tara-vc.adup.io)
 - At least one connected ad platform
-
-## Support
-
-- Email: hello@adup.io
-- Dashboard: [app.adup.io](https://app.adup.io)
 
 ## License
 
