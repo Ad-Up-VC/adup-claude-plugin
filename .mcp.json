@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "adup": {
+      "type": "http",
+      "url": "https://tara-gateway-vc-v2wpc.ondigitalocean.app/mcp",
+      "headers": {
+        "Authorization": "Bearer ${ADUP_API_KEY}"
+      }
+    }
+  }
+}
