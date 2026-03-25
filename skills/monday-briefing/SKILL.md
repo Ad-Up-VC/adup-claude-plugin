@@ -1,4 +1,5 @@
 ---
+name: monday-briefing
 description: Generate a per-client executive briefing for the start of the week. Pulls last 7 days vs previous 7 days from all connected platforms, calculates blended ROAS via GA4, delivers an opinionated summary with wins, concerns, and proposed actions.
 ---
 

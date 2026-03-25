@@ -1,4 +1,5 @@
 ---
+name: analytics
 description: Analyse Google Analytics 4 data — sessions, revenue, e-commerce, user acquisition by channel, content engagement, funnel drop-off, and conversion events. Use to connect paid ad spend to actual on-site revenue and understand the full customer journey.
 ---
 

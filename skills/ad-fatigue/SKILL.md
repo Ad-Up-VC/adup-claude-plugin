@@ -1,4 +1,5 @@
 ---
+name: ad-fatigue
 description: Run a daily ad fatigue check across all connected advertising platforms. Detects audience exhaustion signals (rising frequency, falling CTR, rising CPC) and scores each campaign or creative with a fatigue status, severity score, and recommended action. Run every morning after the previous day's data has synced.
 ---
 

@@ -1,4 +1,5 @@
 ---
+name: cross-platform
 description: Build a unified cross-platform marketing dashboard showing total spend, performance by channel, blended ROAS, and key insights across all connected platforms. The most powerful ADUP skill.
 ---
 

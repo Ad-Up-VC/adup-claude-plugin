@@ -1,4 +1,5 @@
 ---
+name: client-report
 description: Generate polished, client-ready performance reports with executive summaries, data-backed narratives, and account manager talking points. Outputs both markdown and PPTX. Follows the ADUP Report Design Guide for consistent tone, structure, and quality. Supports weekly, monthly, and custom date ranges.
 ---
 

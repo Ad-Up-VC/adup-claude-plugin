@@ -1,4 +1,5 @@
 ---
+name: budget-tracker
 description: Monitor budget pacing across Facebook Ads campaigns. Identifies overpacing and underpacing campaigns, calculates projected spend vs budgets, and proposes budget adjustments when pacing is significantly off track.
 ---
 

@@ -1,4 +1,5 @@
 ---
+name: google-optimize
 description: Propose Google Ads optimizations through the action middleware. Covers budget changes, campaign/ad group/ad status changes, and RSA headline/description updates based on asset performance ratings.
 ---
 

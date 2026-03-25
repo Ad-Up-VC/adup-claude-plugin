@@ -1,4 +1,5 @@
 ---
+name: facebook-ads
 description: Analyse Facebook and Instagram ad performance using Meta-native analytical frameworks. Covers campaigns, ROAS, conversion funnel, learning phase diagnosis, breakdown effect, relevance diagnostics, creative fatigue, and audience breakdowns.
 ---
 

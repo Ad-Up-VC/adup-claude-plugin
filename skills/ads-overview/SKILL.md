@@ -1,4 +1,5 @@
 ---
+name: ads-overview
 description: Get a quick cross-platform advertising overview. Shows total spend, performance by platform, and top-level insights across all connected ad platforms for the active shop.
 ---
 

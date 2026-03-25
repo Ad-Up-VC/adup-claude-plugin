@@ -1,4 +1,5 @@
 ---
+name: linkedin-optimize
 description: Propose LinkedIn Ads optimizations through the action middleware. Covers campaign and campaign group budget changes, status changes, and creative copy updates based on engagement and CPL performance.
 ---
 

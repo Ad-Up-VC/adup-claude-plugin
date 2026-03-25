@@ -1,4 +1,5 @@
 ---
+name: setup
 description: Set up your ADUP API key, connect to your marketing data, and automatically deploy all scheduled monitoring, optimization, and reporting tasks. Run this once when you first install the plugin, or any time you need to update your key or re-deploy tasks.
 ---
 

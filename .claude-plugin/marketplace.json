@@ -11,7 +11,7 @@
   "plugins": [
     {
       "name": "adup",
-      "source": ".",
+      "source": "./",
       "description": "Connect Claude Code to your entire marketing stack. Query Facebook Ads, Google Ads, GA4, Google Search Console, LinkedIn Ads, HubSpot, and Intercom using natural language.",
       "version": "1.0.0",
       "author": {

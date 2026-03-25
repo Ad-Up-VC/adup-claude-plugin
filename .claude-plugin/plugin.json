@@ -2,7 +2,10 @@
   "name": "adup",
   "description": "Connect Claude Code to your entire marketing stack. Query Facebook Ads, Google Ads, GA4, Google Search Console, LinkedIn Ads, HubSpot, and Intercom using natural language. Built for performance marketers and agencies.",
   "version": "1.0.0",
-  "author": "ADUP <info@adup.io>",
+  "author": {
+    "name": "ADUP",
+    "email": "info@adup.io"
+  },
   "homepage": "https://tara.adup.io",
   "repository": "https://github.com/Ad-Up-VC/adup-claude-plugin"
 }

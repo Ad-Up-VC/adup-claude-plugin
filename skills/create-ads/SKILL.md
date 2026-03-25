@@ -1,4 +1,5 @@
 ---
+name: create-ads
 description: Propose creating new Facebook ads within existing ad sets through the action middleware. Guides creative specification, references creative playbook data, and ensures new ads are created in PAUSED status for review.
 ---
 

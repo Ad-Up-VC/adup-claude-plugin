@@ -1,4 +1,5 @@
 ---
+name: connect
 description: Connect your ADUP account and verify which platforms are active. Run this first to confirm the integration is working and see your available shops/clients.
 ---
 

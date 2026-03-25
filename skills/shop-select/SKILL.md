@@ -1,4 +1,5 @@
 ---
+name: shop-select
 description: Set the active client for an agency account. Use when a user mentions a client name and you need to resolve which shop to query, or when switching between clients mid-session.
 ---
 

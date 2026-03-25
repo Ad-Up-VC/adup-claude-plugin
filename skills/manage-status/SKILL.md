@@ -1,4 +1,5 @@
 ---
+name: manage-status
 description: Propose pausing or activating Facebook Ads campaigns, ad sets, and ads through the action middleware. Evaluates performance data to justify status changes with data-backed reasoning. Never changes entities in learning phase.
 ---
 

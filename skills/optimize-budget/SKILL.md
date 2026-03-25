@@ -1,4 +1,5 @@
 ---
+name: optimize-budget
 description: Analyse campaign performance to identify budget reallocation opportunities. Proposes increasing budgets on strong performers and decreasing budgets on underperformers, all through the action middleware with data-backed reasoning.
 ---
 

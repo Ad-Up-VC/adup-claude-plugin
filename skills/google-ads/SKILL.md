@@ -1,4 +1,5 @@
 ---
+name: google-ads
 description: Analyse Google Ads performance including Search, Shopping, Performance Max, and Display. Campaign metrics, Quality Score diagnostics, impression share analysis, keyword analysis, and conversion data. All costs returned in micros — always divide by 1,000,000.
 ---
 

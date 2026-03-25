@@ -1,4 +1,5 @@
 ---
+name: tiktok-optimize
 description: Propose TikTok Ads optimizations through the action middleware. Covers campaign and ad group budget changes, and status changes (pause/enable) based on video engagement metrics, hook rates, and conversion performance.
 ---
 

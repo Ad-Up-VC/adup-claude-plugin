@@ -1,4 +1,5 @@
 ---
+name: creative-intelligence
 description: Analyse creative performance across formats, content types, and copy patterns to build a per-client creative playbook. Scores creative elements, identifies winning patterns, and provides data-driven recommendations for future creative production.
 ---
 

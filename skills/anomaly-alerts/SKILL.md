@@ -1,4 +1,5 @@
 ---
+name: anomaly-alerts
 description: Monitor ad accounts for anomalies every 3 hours. Detects spend spikes, delivery stops, CTR drops, budget exhaustion, and conversion rate collapse. Creates proposals for critical issues and logs warnings for the next briefing.
 ---
 
