@@ -41,7 +41,7 @@ If `list_shops` fails with an auth error:
 "The ADUP connection needs authentication. Set your API key: export ADUP_API_KEY=your_key_here, then restart Claude Code."
 
 If the MCP server itself is unreachable (connection refused or timeout):
-"Cannot reach the ADUP gateway at https://tara-gateway-vc-v2wpc.ondigitalocean.app/mcp. Check that your ADUP_API_KEY is set correctly and the service is running."
+"Cannot reach the ADUP gateway at https://gateway.adup.io/mcp. Check that your ADUP_API_KEY is set correctly and the service is running."
 
 If no shops are returned:
 "Your ADUP account is connected but no shops are configured yet. Visit https://tara-vc.adup.io to connect your first advertising account."
