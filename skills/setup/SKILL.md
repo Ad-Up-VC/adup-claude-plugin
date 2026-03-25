@@ -23,7 +23,7 @@ Tell the user:
 
 > To connect ADUP, you need your API key from the ADUP dashboard.
 >
-> 1. Go to **[tara-vc.adup.io/settings/api](https://tara-vc.adup.io/settings/api)**
+> 1. Go to **[tara.adup.io/settings/api](https://tara.adup.io/settings/api)**
 > 2. Copy your API key
 > 3. Paste it here
 
@@ -65,7 +65,7 @@ You manage [N] client shops:
 ```
 
 If it fails with an auth error:
-> The key doesn't seem to be valid. Double-check it at tara-vc.adup.io/settings/api and try again.
+> The key doesn't seem to be valid. Double-check it at tara.adup.io/settings/api and try again.
 
 **If successful, proceed to Step 5.**
 

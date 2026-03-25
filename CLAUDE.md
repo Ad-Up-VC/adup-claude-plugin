@@ -56,7 +56,7 @@ agents/                      # Multi-skill coordination
 claude plugin install adup --plugin-dir /path/to/adup-claude-plugin
 
 # Configure API key
-/adup:setup        # Enter API key (get it from tara-vc.adup.io/settings/api)
+/adup:setup        # Enter API key (get it from tara.adup.io/settings/api)
 
 # Verify connection
 /adup:connect

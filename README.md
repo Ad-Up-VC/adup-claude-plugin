@@ -22,7 +22,7 @@ Once installed, run the setup skill — it will walk you through entering your A
 /adup:setup
 ```
 
-Get your API key from [tara-vc.adup.io/settings/api](https://tara-vc.adup.io/settings/api).
+Get your API key from [tara.adup.io/settings/api](https://tara.adup.io/settings/api).
 
 ### 3. Verify connection
 
@@ -93,7 +93,7 @@ Compare Facebook vs Google for Adidas EU.
 ## Requirements
 
 - Claude Code 1.0.0+
-- Active ADUP account — [tara-vc.adup.io](https://tara-vc.adup.io)
+- Active ADUP account — [tara.adup.io](https://tara.adup.io)
 - At least one connected ad platform
 
 ## License

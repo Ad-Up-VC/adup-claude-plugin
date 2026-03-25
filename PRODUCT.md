@@ -220,7 +220,7 @@ claude plugin install adup --plugin-dir /path/to/adup-claude-plugin
 ```
 /adup:setup
 ```
-Get your key from [tara-vc.adup.io/settings/api](https://tara-vc.adup.io/settings/api).
+Get your key from [tara.adup.io/settings/api](https://tara.adup.io/settings/api).
 
 ### 3. Verify connection
 ```
@@ -235,7 +235,7 @@ How are my campaigns doing this week?
 ```
 
 ### 5. Configure safety rules (dashboard)
-Set your budget caps, % limits, and approval thresholds at [tara-vc.adup.io](https://tara-vc.adup.io).
+Set your budget caps, % limits, and approval thresholds at [tara.adup.io](https://tara.adup.io).
 
 ---
 
