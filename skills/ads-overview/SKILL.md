@@ -29,9 +29,7 @@ get_google_ads_campaign_performance(start_date="YYYY-MM-DD", end_date="YYYY-MM-D
 Note: Google Ads returns costs in micros — divide by 1,000,000 for actual values.
 
 **If LinkedIn Ads connected:**
-```
-get_campaign_analytics_with_names(date_range={"since": "YYYY-MM-DD", "until": "YYYY-MM-DD"})
-```
+- LinkedIn tools not yet available via MCP — note in output that LinkedIn data is pending integration
 
 ## Output format
 

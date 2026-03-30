@@ -104,21 +104,21 @@ create_scheduled_task(
   taskId: "adup-budget-pacing",
   description: "Daily budget pacing check across all clients",
   cronExpression: "30 6 * * *",
-  prompt: "Run /adup:budget-tracker for all clients. Call list_shops, then loop through each shop: set_active_shop, pull budget pacing data with get_budget_pacing for the current month, identify overpacing (>110%) and underpacing (<85%) campaigns. For overpacing >115%, propose budget decreases via propose_budget_change. For severe overpacing >150%, flag as urgent. Report pacing status per client."
+  prompt: "Run /adup:budget-tracker for all clients. Call list_shops, then loop through each shop: set_active_shop, pull campaign data with get_campaign_performance_metrics and get_campaigns for the current month, calculate pacing by comparing actual spend vs expected. Identify overpacing (>110%) and underpacing (<85%) campaigns. For overpacing >115%, propose budget decreases via propose_budget_change. For severe overpacing >150%, flag as urgent. Report pacing status per client."
 )
 
 create_scheduled_task(
   taskId: "adup-ad-fatigue",
   description: "Daily creative fatigue scan across all clients",
   cronExpression: "0 7 * * *",
-  prompt: "Run /adup:ad-fatigue for all clients. Call list_shops, loop through each shop: set_active_shop, call detect_ad_fatigue with lookback_days=14. For HIGH fatigue ads (frequency >threshold AND CTR decline >20% OR CPA increase >25%), propose pause via propose_status_change. For MEDIUM fatigue, propose 15-20% budget decrease on parent ad set via propose_budget_change. For LOW fatigue, flag for monitoring only. Never propose changes to ads in Learning phase. Save summary."
+  prompt: "Run /adup:ad-fatigue for all clients. Call list_shops, loop through each shop: set_active_shop, pull ad-level data with get_ad_insights (time_increment=1 for last 3 days) and check learning phase with get_adsets. For HIGH fatigue ads (frequency >threshold AND CTR decline >20% OR CPA increase >25%), propose pause via propose_status_change. For MEDIUM fatigue, propose 15-20% budget decrease on parent ad set via propose_budget_change. For LOW fatigue, flag for monitoring only. Never propose changes to ads in Learning phase. Save summary."
 )
 
 create_scheduled_task(
   taskId: "adup-anomaly-alerts",
   description: "Anomaly detection every 3 hours across all clients",
   cronExpression: "0 */3 * * *",
-  prompt: "Run /adup:anomaly-alerts for all clients. Call list_shops, loop through each shop: set_active_shop, pull today's data vs 7-day rolling averages from all connected platforms (Facebook: get_campaign_performance_metrics, Google: get_google_ads_campaign_performance with micros/1000000, TikTok: get_tiktok_campaign_reports, LinkedIn: campaign analytics). Detect CRITICAL anomalies: delivery stopped ($0 spend 6h+ while active), spend spikes (>200% of 7-day avg), budget exhaustion (<5% remaining). For CRITICAL: create proposals via propose_budget_change. Detect WARNING: CTR drop >30%, CPA spike >50%, frequency >4.0. Report counts: CRITICAL/WARNING/INFO. If weekend, apply wider tolerance."
+  prompt: "Run /adup:anomaly-alerts for all clients. Call list_shops, loop through each shop: set_active_shop, pull today's data vs 7-day rolling averages from all connected platforms (Facebook: get_campaign_performance_metrics, Google: get_google_ads_campaign_performance with micros/1000000). Detect CRITICAL anomalies: delivery stopped ($0 spend 6h+ while active), spend spikes (>200% of 7-day avg), budget exhaustion (<5% remaining). For CRITICAL: create proposals via propose_budget_change. Detect WARNING: CTR drop >30%, CPA spike >50%, frequency >4.0. Report counts: CRITICAL/WARNING/INFO. If weekend, apply wider tolerance."
 )
 ```
 
@@ -143,7 +143,7 @@ create_scheduled_task(
   taskId: "adup-tiktok-optimize",
   description: "TikTok Ads optimization on Tuesday and Thursday",
   cronExpression: "30 9 * * 2,4",
-  prompt: "Run /adup:tiktok-optimize for all clients with TikTok Ads connected. Call list_shops, loop through each shop: set_active_shop, get_tiktok_campaign_reports + get_tiktok_adgroup_reports + get_tiktok_video_reports for last 14 days. Key metric: hook rate (3s views/impressions). For winners (hook rate >30%, good CPA/ROAS, 10+ conversions): propose 15-20% budget increase. For losers (hook rate <20%, poor CPA): propose decrease. For hook rate <10% with spend: propose DISABLE (TikTok uses ENABLE/DISABLE). Flag creative fatigue: any ad 14+ days with declining hook rate needs replacement. All via middleware."
+  prompt: "Run /adup:tiktok-optimize for all clients with TikTok Ads connected. Call list_shops, loop through each shop: set_active_shop. Note: TikTok report tools not yet available via MCP — when available, pull campaign/adgroup/video reports for last 14 days. Key metric: hook rate (3s views/impressions). For winners (hook rate >30%, good CPA/ROAS, 10+ conversions): propose 15-20% budget increase. For losers (hook rate <20%, poor CPA): propose decrease. For hook rate <10% with spend: propose DISABLE (TikTok uses ENABLE/DISABLE). Flag creative fatigue: any ad 14+ days with declining hook rate needs replacement. All via middleware."
 )
 
 create_scheduled_task(
@@ -211,7 +211,7 @@ create_scheduled_task(
   taskId: "adup-creative-intelligence",
   description: "Weekly creative playbook update per client",
   cronExpression: "0 10 * * 1",
-  prompt: "Run /adup:creative-intelligence for all clients. Call list_shops, loop through each shop: set_active_shop. Pull 30-day ad-level data with creative details from all platforms (Facebook: get_ad_insights + creatives, Google: get_google_ads_ad_performance + creatives, TikTok: get_tiktok_ad_reports + video reports). Categorize creatives by format (video/static/carousel), content type (testimonial/UGC/product), and copy pattern (question/statement/CTA type). Score each category on CTR (20%), CPA (30%), ROAS (30%), Durability (20%). Build creative playbook: top formats, winning content types, copy insights, recommendations. Only score categories with 1000+ impressions and 5+ conversions. Save as ~/Desktop/ADUP-Reports/{client-slug}/{YYYY-MM}/{client}_creative-playbook_{YYYY-MM-DD}.md (mkdir -p first)."
+  prompt: "Run /adup:creative-intelligence for all clients. Call list_shops, loop through each shop: set_active_shop. Pull 30-day ad-level data with creative details from all platforms (Facebook: get_ad_insights + get_ads, Google: get_google_ads_ad_performance + get_google_ads_ad_creatives). Categorize creatives by format (video/static/carousel), content type (testimonial/UGC/product), and copy pattern (question/statement/CTA type). Score each category on CTR (20%), CPA (30%), ROAS (30%), Durability (20%). Build creative playbook: top formats, winning content types, copy insights, recommendations. Only score categories with 1000+ impressions and 5+ conversions. Save as ~/Desktop/ADUP-Reports/{client-slug}/{YYYY-MM}/{client}_creative-playbook_{YYYY-MM-DD}.md (mkdir -p first)."
 )
 ```
 

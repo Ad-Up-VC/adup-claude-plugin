@@ -13,7 +13,7 @@ Once per morning, after yesterday's data has fully synced from each platform (ty
 
 ## Pre-flight
 
-1. Confirm shop context for agency accounts — call `list_shops` + `set_shop_context` if not set
+1. Confirm shop context for agency accounts — call `list_shops` + `set_active_shop` if not set
 2. Determine which platforms are connected (check `connected_platforms` from `list_shops`)
 3. Set date variables: D-1 = yesterday, D-2 = day before, D-3 = three days ago (YYYY-MM-DD)
 4. Run each connected platform's fatigue check below, then combine into one output
@@ -119,23 +119,7 @@ TikTok exposes native `frequency` and `reach` metrics. The same full 10-step alg
 
 ### Data Retrieval
 
-```
-# Step 1: Account-level overview with frequency
-get_tiktok_account_reports(
-  start_date="D-3",
-  end_date="D-1",
-  metrics=["spend", "impressions", "clicks", "ctr", "cpc", "cpm", "reach", "frequency"]
-)
-
-# Step 1b: Daily breakdown per campaign
-get_tiktok_time_reports(
-  start_date="D-3",
-  end_date="D-1",
-  time_dimension="stat_time_day",
-  campaign_ids=["<active_campaign_ids>"],
-  metrics=["spend", "impressions", "clicks", "ctr", "cpc", "cpm", "frequency"]
-)
-```
+TikTok campaign/ad report tools are not yet available via MCP. When available, pull account-level and daily campaign-level data with frequency, CTR, CPC, and CPM metrics for D-3 to D-1.
 
 Ignore campaigns with zero spend on D-1.
 

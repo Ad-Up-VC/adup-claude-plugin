@@ -17,22 +17,22 @@ description: Generate a per-client executive briefing for the start of the week.
 For each active shop, pull performance data from all connected platforms:
 
 ### Facebook Ads
-- `get_campaign_insights` with fields: campaign_name, spend, impressions, clicks, actions, cost_per_action_type, ctr, frequency
+- `get_campaign_performance_metrics(time_range={...}, shop_slug="<slug>")` for campaign-level metrics
+- `get_ad_insights(time_range={...}, shop_slug="<slug>")` for detailed conversion data
 - Compare last 7 days vs previous 7 days
 
 ### Google Ads
-- `get_campaign_performance` for all active campaigns
+- `get_google_ads_campaign_performance(start_date="...", end_date="...", shop_slug="<slug>")` for all active campaigns
 - Remember: all monetary values in micros — divide by 1,000,000
 
 ### TikTok Ads (if connected)
-- `get_tiktok_campaign_reports` for last 7 days
-- Include hook rate (3s views / impressions) for video content
+- TikTok campaign tools not yet available via MCP — note in briefing
 
 ### LinkedIn Ads (if connected)
-- Campaign performance with CPL focus
+- LinkedIn tools not yet available via MCP — note in briefing
 
 ### GA4
-- `get_ecommerce_performance` for revenue, transactions, conversion rate
+- `get_ecommerce_performance(user_prompt="revenue by source", time_range={...}, shop_slug="<slug>")` for revenue, transactions, conversion rate
 - Channel attribution to calculate blended ROAS
 
 ---

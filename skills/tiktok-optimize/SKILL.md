@@ -16,10 +16,9 @@ description: Propose TikTok Ads optimizations through the action middleware. Cov
 ## Step 1 — Analyse Performance
 
 Pull performance data using TikTok Ads read tools:
-- `get_tiktok_campaign_reports` for campaign-level metrics
-- `get_tiktok_adgroup_reports` for ad group-level metrics
-- `get_tiktok_ad_reports` for ad-level with video engagement
-- `get_tiktok_video_reports` for detailed video metrics (2s/6s views, P25-P100 completion)
+- TikTok campaign/ad group/ad report tools are not yet available via MCP
+- When available, use the platform-specific tools with `shop_slug` parameter
+- For now, note that TikTok optimization requires manual data review
 
 ### Key metrics per campaign/ad group:
 | Metric | What it shows |

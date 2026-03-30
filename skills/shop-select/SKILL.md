@@ -17,8 +17,8 @@ Resolve a natural-language client name to the correct shop slug for subsequent q
 
 1. Call `list_shops` to get all available shops with names and slugs
 2. Match the user's client name to a shop (case-insensitive, partial match)
-3. Call `set_shop_context(shop_identifier="<name or slug>")` with the matched name
-4. The returned `shop_slug` is what to use in all subsequent platform tool calls via X-Shop-Slug
+3. Call `set_active_shop(shop_slug="<slug>")` with the matched slug
+4. The returned `shop_slug` is what to use in all subsequent platform tool calls
 
 ## Matching rules
 

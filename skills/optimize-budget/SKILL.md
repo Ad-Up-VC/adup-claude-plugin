@@ -15,8 +15,8 @@ description: Analyse campaign performance to identify budget reallocation opport
 ## Step 1 — Analyse Performance
 
 Pull campaign-level performance data using platform read tools:
-- Facebook: `get_campaign_insights` with fields: campaign_name, spend, impressions, clicks, actions, cost_per_action_type, ctr
-- Google: `get_campaign_performance`
+- Facebook: `get_campaign_performance_metrics(time_range={...}, shop_slug="<slug>")` for campaign-level spend, clicks, CTR, CPC, purchases, ROAS
+- Google: `get_google_ads_campaign_performance(start_date="...", end_date="...", shop_slug="<slug>")` — remember to divide micros by 1,000,000
 - Compare last 7 days vs previous 7 days for trend
 
 ### Key metrics per campaign:

@@ -15,17 +15,16 @@ description: Analyse creative performance across formats, content types, and cop
 ## Step 1 — Pull Creative Performance Data
 
 ### Facebook/Instagram Ads
-- `get_ad_insights` with fields: ad_name, impressions, clicks, ctr, spend, actions, cost_per_action_type, reach, frequency
-- `get_ad_creatives` to get creative details: image_url, body, title, call_to_action_type, object_type
+- `get_ad_insights(time_range={...}, shop_slug="<slug>", metric_categories=["performance", "conversion"])` for ad-level performance
+- `get_ads(shop_slug="<slug>")` to get creative details: image_url, body, title, call_to_action_type, object_type
 - Include WoW trend data with `time_increment=7`
 
 ### Google Ads
-- `get_ad_performance` and `get_ad_creative` for RSA headline/description performance
-- Asset performance ratings (LOW, GOOD, BEST) for RSA components
+- `get_google_ads_ad_performance(start_date="...", end_date="...", shop_slug="<slug>")` for ad-level metrics
+- `get_google_ads_ad_creatives(shop_slug="<slug>")` for RSA headline/description performance and asset performance ratings (LOW, GOOD, BEST)
 
 ### TikTok Ads (if connected)
-- `get_tiktok_ad_reports` with video engagement: hook rate (3s views), P25/P50/P75/P100 completion rates
-- `get_tiktok_video_reports` for detailed video metrics
+- TikTok ad-level tools not yet available via MCP — note in output that TikTok creative analysis is pending integration
 
 ### LinkedIn Ads (if connected)
 - Creative-level performance: impressions, clicks, CTR, conversions, CPL

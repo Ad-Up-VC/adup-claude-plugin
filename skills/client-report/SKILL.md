@@ -41,12 +41,8 @@ get_google_ads_campaign_performance(start_date="...", end_date="...", shop_slug=
 - Include campaign type context (Search, Shopping, PMax, Display)
 
 ### TikTok Ads (if connected)
-```
-get_tiktok_campaign_reports(campaign_ids=[...], start_date="...", end_date="...", shop_slug="<slug>")
-get_tiktok_video_reports(start_date="...", end_date="...", shop_slug="<slug>")
-```
-- Include hook rate (3s views / impressions) — the key TikTok creative metric
-- Include video completion rates (P25/P50/P75/P100)
+- TikTok report tools not yet available via MCP — note in report that TikTok data is pending integration
+- When available, include hook rate (3s views / impressions) and video completion rates (P25/P50/P75/P100)
 
 ### LinkedIn Ads (if connected)
 - Campaign analytics for both periods

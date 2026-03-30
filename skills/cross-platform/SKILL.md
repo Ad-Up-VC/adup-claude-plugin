@@ -24,20 +24,17 @@ description: Build a unified cross-platform marketing dashboard showing total sp
 
 ```
 # Facebook (if connected)
-get_campaign_performance_metrics(time_range={...})
+get_campaign_performance_metrics(time_range={"since": "YYYY-MM-DD", "until": "YYYY-MM-DD"}, shop_slug="<slug>")
 
-# Google Ads (if connected)  
-get_google_ads_account_currency()
-get_google_ads_campaign_performance(start_date=..., end_date=...)
-
-# LinkedIn (if connected)
-get_campaign_analytics_with_names(date_range={...})
+# Google Ads (if connected)
+get_google_ads_account_currency(shop_slug="<slug>")
+get_google_ads_campaign_performance(start_date="YYYY-MM-DD", end_date="YYYY-MM-DD", shop_slug="<slug>")
 ```
 
 ### 2. Analytics (if GA4 connected)
 ```
-get_ecommerce_performance(user_prompt="revenue by source", time_range={...}, format_type="table")
-get_user_acquisition(user_prompt="sessions by channel", time_range={...})
+get_ecommerce_performance(user_prompt="revenue by source", time_range={"since": {"year": YYYY, "month": M, "day": D}, "until": {"year": YYYY, "month": M, "day": D}}, format_type="table", shop_slug="<slug>")
+get_user_acquisition(user_prompt="sessions by channel", time_range={"since": {"year": YYYY, "month": M, "day": D}, "until": {"year": YYYY, "month": M, "day": D}}, shop_slug="<slug>")
 ```
 
 ### 3. Assemble and cross-reference

@@ -17,18 +17,18 @@ description: Monitor ad accounts for anomalies every 3 hours. Detects spend spik
 For each active shop, pull recent data from all connected platforms:
 
 ### Facebook Ads
-- `get_campaign_insights` with `time_increment=1` for today and last 7 days
-- Fields: campaign_name, spend, impressions, clicks, actions, cost_per_action_type, frequency
+- `get_campaign_performance_metrics(time_range={...}, shop_slug="<slug>")` for today and last 7 days
+- `get_ad_insights(time_range={...}, time_increment=1, shop_slug="<slug>")` for daily granularity
 
 ### Google Ads
-- `get_campaign_performance` for today and last 7 days
+- `get_google_ads_campaign_performance(start_date="...", end_date="...", shop_slug="<slug>")` for today and last 7 days
 - All monetary values in micros — divide by 1,000,000
 
 ### TikTok Ads (if connected)
-- `get_tiktok_campaign_reports` for today and last 7 days
+- TikTok campaign tools not yet available via MCP — skip or note
 
 ### LinkedIn Ads (if connected)
-- Campaign performance for today and last 7 days
+- LinkedIn tools not yet available via MCP — skip or note
 
 ---
 

@@ -16,11 +16,12 @@ description: Propose pausing or activating Facebook Ads campaigns, ad sets, and 
 Pull entity-level performance data before proposing any status change:
 
 ### For campaigns/ad sets:
-- Use `get_campaign_insights` or `get_adset_insights` with fields: campaign_name, spend, impressions, clicks, actions, cost_per_action_type, ctr
-- Check learning phase status via `get_adsets` — **never propose changes to entities in Learning or Learning Limited**
+- Use `get_campaign_performance_metrics(time_range={...}, shop_slug="<slug>")` for campaign-level metrics
+- Use `get_ad_insights(time_range={...}, campaign_id="<id>", shop_slug="<slug>")` for ad set/ad-level data
+- Check learning phase status via `get_adsets(shop_slug="<slug>")` — **never propose changes to entities in Learning or Learning Limited**
 
 ### For individual ads:
-- Use `get_ad_insights` with fields: ad_name, spend, impressions, clicks, actions, cost_per_action_type, ctr
+- Use `get_ad_insights(time_range={...}, ad_id="<id>", shop_slug="<slug>")` for ad-level performance
 - Check parent ad set status for learning phase
 
 ---

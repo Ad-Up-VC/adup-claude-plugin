@@ -6,7 +6,8 @@ description: Analyse Google Analytics 4 data — sessions, revenue, e-commerce, 
 # GA4 Analytics
 
 ## Pre-flight
-- Confirm shop context for agency accounts
+- Confirm shop context for agency accounts (use `set_active_shop` if not already set)
+- **Always include `shop_slug` in every GA4 tool call** — required for agency accounts
 - Default to last 30 days if no date range specified — state the assumption
 - GA4 values are in actual currency (no micros conversion needed)
 - Pass the user's actual question as `user_prompt` — GA4 tools use it to select the right metrics and dimensions automatically
@@ -43,7 +44,7 @@ GA4 does not use Bounce Rate the same way Universal Analytics did.
 ```
 get_ecommerce_performance(
   user_prompt="Revenue by traffic source last 30 days",
-  time_range={"since": "YYYY-MM-DD", "until": "YYYY-MM-DD"},
+  time_range={"since": {"year": YYYY, "month": M, "day": D}, "until": {"year": YYYY, "month": M, "day": D}},
   format_type="table",
   include_items=False
 )
@@ -55,7 +56,7 @@ Returns: revenue, transactions, AOV, conversion rate — segmented by channel, s
 get_user_acquisition(
   user_prompt="Sessions and revenue by channel this month",
   num_top_sources=10,
-  time_range={"since": "YYYY-MM-DD", "until": "YYYY-MM-DD"},
+  time_range={"since": {"year": YYYY, "month": M, "day": D}, "until": {"year": YYYY, "month": M, "day": D}},
   format_type="table"
 )
 ```
@@ -65,7 +66,7 @@ Use to answer "where do users come from?" — sessions, users, revenue by channe
 ```
 get_conversion_funnel(
   user_prompt="Show me the purchase funnel drop-off",
-  time_range={"since": "YYYY-MM-DD", "until": "YYYY-MM-DD"},
+  time_range={"since": {"year": YYYY, "month": M, "day": D}, "until": {"year": YYYY, "month": M, "day": D}},
   format_type="table",
   funnel_steps=["view_item", "add_to_cart", "begin_checkout", "add_payment_info", "purchase"]
 )
@@ -76,7 +77,7 @@ Shows step-by-step drop-off rates. Use whenever conversion rate is the question.
 ```
 get_active_users(
   user_prompt="New vs returning users this month",
-  time_range={"since": "YYYY-MM-DD", "until": "YYYY-MM-DD"},
+  time_range={"since": {"year": YYYY, "month": M, "day": D}, "until": {"year": YYYY, "month": M, "day": D}},
   format_type="table"
 )
 ```
@@ -86,7 +87,7 @@ Use to answer "how big is the audience?" and "is it growing?" — new vs. return
 ```
 get_content_engagement(
   user_prompt="Top pages by engagement time",
-  time_range={"since": "YYYY-MM-DD", "until": "YYYY-MM-DD"},
+  time_range={"since": {"year": YYYY, "month": M, "day": D}, "until": {"year": YYYY, "month": M, "day": D}},
   format_type="table",
   limit=20,
   path_contains="/blog"
@@ -98,7 +99,7 @@ Use to answer "what do users do on the site?" — page views, engagement time, e
 ```
 get_events(
   user_prompt="Add to cart events this month by device",
-  time_range={"since": "YYYY-MM-DD", "until": "YYYY-MM-DD"},
+  time_range={"since": {"year": YYYY, "month": M, "day": D}, "until": {"year": YYYY, "month": M, "day": D}},
   event_name="add_to_cart",
   include_parameters=True
 )
@@ -109,7 +110,7 @@ Use for micro-conversion analysis, event frequency, and event-level conversion r
 ```
 run_report(
   user_prompt="Revenue by country and device category this month",
-  time_range={"since": "YYYY-MM-DD", "until": "YYYY-MM-DD"},
+  time_range={"since": {"year": YYYY, "month": M, "day": D}, "until": {"year": YYYY, "month": M, "day": D}},
   format_type="table",
   include_totals=True
 )

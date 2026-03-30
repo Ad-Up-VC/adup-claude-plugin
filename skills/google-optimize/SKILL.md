@@ -16,9 +16,10 @@ description: Propose Google Ads optimizations through the action middleware. Cov
 ## Step 1 — Analyse Performance
 
 Pull performance data using Google Ads read tools:
-- `get_campaign_performance` for campaign-level metrics
-- `get_ad_performance` for ad-level metrics with quality scores
-- `get_ad_creative` for RSA asset performance ratings (LOW, GOOD, BEST)
+- `get_google_ads_campaign_performance(start_date="...", end_date="...", shop_slug="<slug>")` for campaign-level metrics
+- `get_google_ads_ad_performance(start_date="...", end_date="...", shop_slug="<slug>")` for ad-level metrics
+- `get_google_ads_ad_creatives(shop_slug="<slug>")` for RSA asset performance ratings (LOW, GOOD, BEST)
+- `search_google_ads_data(user_prompt="...", shop_slug="<slug>")` for quality score and impression share queries
 
 ### Key metrics per campaign:
 | Metric | Source |

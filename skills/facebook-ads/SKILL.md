@@ -6,10 +6,11 @@ description: Analyse Facebook and Instagram ad performance using Meta-native ana
 # Facebook Ads Analysis
 
 ## Pre-flight
-- Confirm shop context for agency accounts (use `set_shop_context` if not already set)
+- Confirm shop context for agency accounts (use `set_active_shop` if not already set)
+- **Always include `shop_slug` in every Facebook Ads tool call** — required for agency accounts
 - Default to last 30 days if no date range specified — state the assumption
 - Facebook monetary values are in account currency (not micros — no conversion needed)
-- Always call `get_recommendations` before finalising recommendations — align with Meta's own suggestions or explicitly explain any divergence
+- Cross-reference your recommendations with performance data trends — frame suggestions as testable hypotheses
 
 ---
 
@@ -115,12 +116,6 @@ get_adsets(campaign_id="<id>")
 ```
 Use this to check status, daily budget, and targeting for each ad set.
 
-**Meta's own recommendations:**
-```
-get_recommendations(ad_account_id="act_<id>")
-```
-Always call before finalising — surface these to the user and align.
-
 ---
 
 ## Analysis Workflow
@@ -153,10 +148,7 @@ Use breakdowns (age, gender, placement, device) to understand system decisions �
 - **Auction overlap** — multiple ad sets targeting the same audience; Meta picks the winner and excludes others. Result: wasted budget, prevented learning exit. Fix: consolidate ad sets.
 - **Low total auction value** — low delivery despite reasonable bid indicates low estimated action rate or ad quality, not low bid. Fix: creative quality, not higher bids.
 
-### Step 7 — Check Meta recommendations
-Call `get_recommendations`. Surface them. If you diverge from any, explain why explicitly.
-
-### Step 8 — Evaluate over correct time window
+### Step 7 — Evaluate over correct time window
 - Stable ad sets: minimum 7 days. Single-day snapshots are noise.
 - Learning phase ad sets: exclude entirely.
 - Weekend vs. weekday variance (up to 30%) is normal and expected.
@@ -185,12 +177,9 @@ Call `get_recommendations`. Surface them. If you diverge from any, explain why e
 4. [Auction overlap signals if applicable]
 
 ### Recommendations
-1. [Aligned with get_recommendations output — cite the recommendation]
-2. [Data-backed with specific metric cited]
-3. [Framed as testable hypothesis if uncertain]
-
-### Meta's Recommendations
-[List any from get_recommendations, or "None returned for this account"]
+1. [Data-backed with specific metric cited]
+2. [Framed as testable hypothesis if uncertain]
+3. [Third recommendation if applicable]
 ```
 
 ---

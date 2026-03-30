@@ -6,9 +6,10 @@ description: Analyse Google Ads performance including Search, Shopping, Performa
 # Google Ads Analysis
 
 ## Pre-flight
-- Confirm shop context for agency accounts
+- Confirm shop context for agency accounts (use `set_active_shop` if not already set)
+- **Always include `shop_slug` in every Google Ads tool call** — required for agency accounts
 - Default to last 30 days if no date range specified — state the assumption
-- **Always call `get_google_ads_account_currency()` first** — display the correct currency symbol in all outputs
+- **Always call `get_google_ads_account_currency(shop_slug="<slug>")` first** — display the correct currency symbol in all outputs
 - Google Ads returns ALL monetary values in micros — see conversion rule below
 
 ---
@@ -62,14 +63,6 @@ search_google_ads_data(
 )
 ```
 Use this for: search term reports, keyword-level analysis, quality score queries, impression share, any metric not in structured tools.
-
-**Raw GAQL (for advanced queries):**
-```
-execute_google_ads_gaql_query(
-  query="SELECT campaign.name, metrics.impressions, metrics.cost_micros FROM campaign WHERE segments.date DURING LAST_30_DAYS",
-  output_format="table"
-)
-```
 
 **Conversion action details:**
 ```
