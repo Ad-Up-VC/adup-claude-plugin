@@ -10,7 +10,22 @@ description: Analyse Google Analytics 4 data — sessions, revenue, e-commerce, 
 - **Always include `shop_slug` in every GA4 tool call** — required for agency accounts
 - Default to last 30 days if no date range specified — state the assumption
 - GA4 values are in actual currency (no micros conversion needed)
-- Pass the user's actual question as `user_prompt` — GA4 tools use it to select the right metrics and dimensions automatically
+- Pass the user's actual question as `user_prompt` for context
+
+## Metric & Dimension Selection (CRITICAL)
+
+**You MUST always pass explicit `dimensions` and `metrics` lists to every GA4 tool call.** The tools do not auto-select — they require explicit GA4 API names.
+
+Refer to `GA4_REFERENCE.md` (in this skill directory) for:
+- Scope compatibility rules (session/user/event/item scopes must match)
+- Ready-made dimension/metric sets for common use cases
+- Which dimensions each tool auto-appends (don't duplicate those)
+- Known incompatible combinations to avoid
+
+**Quick rules:**
+1. Pick dimensions and metrics from the SAME scope (see GA4_REFERENCE.md)
+2. `date`, `deviceCategory`, `country` are safe dimensions that work with most metrics
+3. Some tools auto-append dimensions (e.g. `get_ecommerce_performance` adds `date`) — see reference
 
 ---
 
@@ -44,28 +59,34 @@ GA4 does not use Bounce Rate the same way Universal Analytics did.
 ```
 get_ecommerce_performance(
   user_prompt="Revenue by traffic source last 30 days",
+  dimensions=["sessionDefaultChannelGroup"],
+  metrics=["purchaseRevenue", "transactions", "activeUsers", "engagementRate"],
   time_range={"since": {"year": YYYY, "month": M, "day": D}, "until": {"year": YYYY, "month": M, "day": D}},
   format_type="table",
   include_items=False
 )
 ```
-Returns: revenue, transactions, AOV, conversion rate — segmented by channel, source, or date.
+Returns: revenue, transactions, AOV, conversion rate. Note: `date` is auto-appended.
 
 **User acquisition by channel:**
 ```
 get_user_acquisition(
   user_prompt="Sessions and revenue by channel this month",
+  dimensions=["sessionSource", "sessionMedium"],
+  metrics=["sessions", "activeUsers", "newUsers", "engagementRate", "bounceRate"],
   num_top_sources=10,
   time_range={"since": {"year": YYYY, "month": M, "day": D}, "until": {"year": YYYY, "month": M, "day": D}},
   format_type="table"
 )
 ```
-Use to answer "where do users come from?" — sessions, users, revenue by channel grouping.
+Use to answer "where do users come from?" Note: `sessionSource` is auto-appended if missing.
 
 **Conversion funnel drop-off:**
 ```
 get_conversion_funnel(
   user_prompt="Show me the purchase funnel drop-off",
+  dimensions=["eventName"],
+  metrics=["eventCount", "activeUsers"],
   time_range={"since": {"year": YYYY, "month": M, "day": D}, "until": {"year": YYYY, "month": M, "day": D}},
   format_type="table",
   funnel_steps=["view_item", "add_to_cart", "begin_checkout", "add_payment_info", "purchase"]
@@ -77,16 +98,20 @@ Shows step-by-step drop-off rates. Use whenever conversion rate is the question.
 ```
 get_active_users(
   user_prompt="New vs returning users this month",
+  dimensions=["date"],
+  metrics=["activeUsers", "newUsers", "totalUsers", "engagementRate"],
   time_range={"since": {"year": YYYY, "month": M, "day": D}, "until": {"year": YYYY, "month": M, "day": D}},
   format_type="table"
 )
 ```
-Use to answer "how big is the audience?" and "is it growing?" — new vs. returning, device, engagement.
+Use to answer "how big is the audience?" and "is it growing?"
 
 **Content and page performance:**
 ```
 get_content_engagement(
   user_prompt="Top pages by engagement time",
+  dimensions=["pagePath", "pageTitle"],
+  metrics=["screenPageViews", "engagementRate", "userEngagementDuration", "averageSessionDuration"],
   time_range={"since": {"year": YYYY, "month": M, "day": D}, "until": {"year": YYYY, "month": M, "day": D}},
   format_type="table",
   limit=20,
@@ -99,6 +124,8 @@ Use to answer "what do users do on the site?" — page views, engagement time, e
 ```
 get_events(
   user_prompt="Add to cart events this month by device",
+  dimensions=["eventName", "deviceCategory"],
+  metrics=["eventCount", "eventValue", "conversions"],
   time_range={"since": {"year": YYYY, "month": M, "day": D}, "until": {"year": YYYY, "month": M, "day": D}},
   event_name="add_to_cart",
   include_parameters=True
@@ -110,12 +137,14 @@ Use for micro-conversion analysis, event frequency, and event-level conversion r
 ```
 run_report(
   user_prompt="Revenue by country and device category this month",
+  dimensions=["country", "deviceCategory"],
+  metrics=["purchaseRevenue", "transactions", "activeUsers"],
   time_range={"since": {"year": YYYY, "month": M, "day": D}, "until": {"year": YYYY, "month": M, "day": D}},
   format_type="table",
   include_totals=True
 )
 ```
-Use for any report not covered by structured tools. The AI selects appropriate metrics and dimensions based on the prompt.
+Use for any report not covered by structured tools. Select dimensions/metrics from GA4_REFERENCE.md.
 
 ---
 
@@ -162,7 +191,7 @@ When combining GA4 with Facebook/Google Ads data:
 `get_content_engagement` — top pages by engagement time, pages with high views but low engagement (UX issue signals).
 
 ### Step 7 — Custom analysis
-`run_report` for any other question — pass the user's exact question as `user_prompt`.
+`run_report` for any other question — select appropriate dimensions/metrics from GA4_REFERENCE.md based on the user's question.
 
 ---
 

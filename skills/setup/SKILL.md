@@ -13,10 +13,22 @@ Full setup wizard: API key configuration, connection verification, report folder
 
 Run this in a bash tool:
 ```bash
+# Check the session environment first
 echo "${ADUP_API_KEY:-NOT_SET}"
+
+# Also check ~/.claude/settings.json (the authoritative per-user store)
+python3 -c "
+import json, os
+path = os.path.expanduser('~/.claude/settings.json')
+try:
+    s = json.load(open(path))
+    key = s.get('env', {}).get('ADUP_API_KEY', 'NOT_SET')
+    print('settings.json:', key[:8] + '...' if key != 'NOT_SET' else 'NOT_SET')
+except: print('settings.json: NOT_SET')
+"
 ```
 
-If it returns a UUID (not `NOT_SET`), the key is already configured. Tell the user and ask if they want to update it. If they say no, skip to **Step 4** (deploy tasks).
+If either check returns a UUID (not `NOT_SET`), the key is already configured for this user. Tell the user and ask if they want to update it. If they say no, skip to **Step 4** (deploy tasks).
 
 ### 2. Ask for the API key
 
@@ -32,26 +44,84 @@ Wait for them to paste the key. It will be a UUID format: `xxxxxxxx-xxxx-xxxx-xx
 
 ### 3. Save the key
 
-Once the user provides the key, save it to their shell profile so it persists across sessions:
+Once the user provides the key, save it using **three methods** so it works across all Claude surfaces (Cowork desktop app, Claude Code CLI, terminal). Run all three blocks:
+
+#### 3a. macOS LaunchAgent — the critical one for desktop apps
+
+On macOS, GUI apps like Cowork do NOT source shell profiles. The only way to expose an env var to a desktop app is via `launchctl`. A `~/Library/LaunchAgents/` plist is per-macOS-user (each user has their own `~/Library/`) and survives reboots.
 
 ```bash
-# Detect shell profile
+LAUNCH_AGENTS_DIR="$HOME/Library/LaunchAgents"
+PLIST_FILE="$LAUNCH_AGENTS_DIR/io.adup.env.ADUP_API_KEY.plist"
+API_KEY="<KEY_FROM_USER>"
+
+mkdir -p "$LAUNCH_AGENTS_DIR"
+
+cat > "$PLIST_FILE" <<PLIST
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>io.adup.env.ADUP_API_KEY</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>launchctl</string>
+        <string>setenv</string>
+        <string>ADUP_API_KEY</string>
+        <string>${API_KEY}</string>
+    </array>
+    <key>RunAtLoad</key>
+    <true/>
+</dict>
+</plist>
+PLIST
+
+# Unload any old version, load the new one, and set immediately for this session
+launchctl unload "$PLIST_FILE" 2>/dev/null || true
+launchctl load "$PLIST_FILE"
+launchctl setenv ADUP_API_KEY "$API_KEY"
+```
+
+#### 3b. Claude Code CLI settings
+
+```bash
+mkdir -p "$HOME/.claude"
+python3 - "$HOME/.claude/settings.json" "<KEY_FROM_USER>" <<'PYEOF'
+import json, sys
+
+settings_path = sys.argv[1]
+api_key = sys.argv[2]
+
+try:
+    with open(settings_path, "r") as f:
+        settings = json.load(f)
+except (FileNotFoundError, json.JSONDecodeError):
+    settings = {}
+
+settings.setdefault("env", {})
+settings["env"]["ADUP_API_KEY"] = api_key
+
+with open(settings_path, "w") as f:
+    json.dump(settings, f, indent=2)
+PYEOF
+```
+
+#### 3c. Shell profile (for terminal sessions)
+
+```bash
 PROFILE_FILE="$HOME/.zshrc"
 [ -f "$HOME/.bashrc" ] && PROFILE_FILE="$HOME/.bashrc"
 
-# Remove any existing ADUP_API_KEY line
 sed -i '' '/^export ADUP_API_KEY=/d' "$PROFILE_FILE" 2>/dev/null || true
-
-# Append new key
-echo "export ADUP_API_KEY=<KEY_FROM_USER>" >> "$PROFILE_FILE"
-
-# Set it for this session too
-export ADUP_API_KEY=<KEY_FROM_USER>
+echo 'export ADUP_API_KEY="<KEY_FROM_USER>"' >> "$PROFILE_FILE"
 ```
 
 Tell the user:
-> API key saved to `~/.zshrc` (or `~/.bashrc`). It will load automatically in future sessions.
-> **Restart Claude Code now** so the MCP connection picks up the new `ADUP_API_KEY`. Then run `/adup:connect` to verify.
+> API key saved in three places so it works everywhere for your Mac user account.
+> **Restart Cowork (or Claude Code) once** to pick up the new environment variable. Then run `/adup:connect` to verify.
+>
+> Other macOS users on this machine will need to run setup separately with their own API key — your key is stored in your personal `~/Library/` folder and is not visible to other users.
 
 ### 4. Verify the connection and discover clients
 
@@ -269,3 +339,13 @@ If the user says they only want to set up tasks for a specific client, ask which
 - If the user only wants to re-deploy tasks (key already set), skip steps 1-3 and jump straight to step 4
 - All 14 tasks loop through all clients automatically — no per-client task creation needed
 - The task prompts reference specific ADUP MCP tools by name — these are the actual function names the AI should call when executing
+
+## Multi-user macOS note
+
+The API key is stored in three per-user locations. On a Mac shared by multiple users:
+
+- **`~/Library/LaunchAgents/io.adup.env.ADUP_API_KEY.plist`** — the primary mechanism. `~/Library/` is per-macOS-user. The LaunchAgent sets the env var at login so desktop apps (Cowork, Claude Code) can read it. This is the method that actually works for GUI apps.
+- **`~/.claude/settings.json`** — for Claude Code CLI users.
+- **`~/.zshrc` / `~/.bashrc`** — for terminal sessions.
+
+Shell profiles (`.zshrc`, `.bashrc`) are **not** sourced by macOS GUI apps — that's why the LaunchAgent is essential. Each macOS user must run `/adup:setup` once with their own API key. One user's key is never visible to another.
