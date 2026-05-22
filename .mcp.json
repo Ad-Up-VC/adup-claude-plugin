@@ -6,6 +6,62 @@
       "headers": {
         "Authorization": "Bearer ${ADUP_API_KEY}"
       }
+    },
+    "adup-facebook": {
+      "type": "http",
+      "url": "https://gateway.adup.io/mcp/facebook",
+      "headers": {
+        "Authorization": "Bearer ${ADUP_API_KEY}"
+      }
+    },
+    "adup-google-ads": {
+      "type": "http",
+      "url": "https://gateway.adup.io/mcp/google_ads",
+      "headers": {
+        "Authorization": "Bearer ${ADUP_API_KEY}"
+      }
+    },
+    "adup-ga4": {
+      "type": "http",
+      "url": "https://gateway.adup.io/mcp/ga4",
+      "headers": {
+        "Authorization": "Bearer ${ADUP_API_KEY}"
+      }
+    },
+    "adup-gsc": {
+      "type": "http",
+      "url": "https://gateway.adup.io/mcp/gsc",
+      "headers": {
+        "Authorization": "Bearer ${ADUP_API_KEY}"
+      }
+    },
+    "adup-linkedin": {
+      "type": "http",
+      "url": "https://gateway.adup.io/mcp/linkedin",
+      "headers": {
+        "Authorization": "Bearer ${ADUP_API_KEY}"
+      }
+    },
+    "adup-hubspot": {
+      "type": "http",
+      "url": "https://gateway.adup.io/mcp/hubspot",
+      "headers": {
+        "Authorization": "Bearer ${ADUP_API_KEY}"
+      }
+    },
+    "adup-intercom": {
+      "type": "http",
+      "url": "https://gateway.adup.io/mcp/intercom",
+      "headers": {
+        "Authorization": "Bearer ${ADUP_API_KEY}"
+      }
+    },
+    "adup-tiktok": {
+      "type": "http",
+      "url": "https://gateway.adup.io/mcp/tiktok",
+      "headers": {
+        "Authorization": "Bearer ${ADUP_API_KEY}"
+      }
     }
   }
 }
