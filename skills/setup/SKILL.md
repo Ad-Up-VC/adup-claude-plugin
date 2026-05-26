@@ -34,13 +34,14 @@ If either check returns a UUID (not `NOT_SET`), the key is already configured fo
 
 Tell the user:
 
-> To connect ADUP, you need your API key from the ADUP dashboard.
+> To connect ADUP, you need **your personal API key**.
 >
-> 1. Go to **[tara.adup.io/settings/api](https://tara.adup.io/settings/api)**
-> 2. Copy your API key
-> 3. Paste it here
+> Each employee on the ADUP platform has their own personal key — this is not a shared agency key. Your key authenticates you to the gateway, which then scopes the available tools to the clients you have been assigned and to your role (owner / team_lead / manager / analyst / read_only).
+>
+> 1. If you have not been invited yet, ask your agency owner to invite you in the agency portal under **Team → Invite employee**. You'll receive an email with your key.
+> 2. If you already have your key, paste it here.
 
-Wait for them to paste the key. It will be a UUID format: `xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx`
+Wait for them to paste the key. Keys start with `emp_` followed by a 40-character random string (e.g., `emp_a1b2c3d4...`).
 
 ### 3. Save the key
 
@@ -125,18 +126,28 @@ Tell the user:
 
 ### 4. Verify the connection and discover clients
 
-Call `list_shops` using the key. If it returns shops, report success and list them:
+Call `list_shops` on the `adup` base connector using the key. The gateway will resolve your identity via `/api/v1/me` and return:
+
+- Your role (`owner` / `team_lead` / `manager` / `analyst` / `read_only`)
+- The shops you can access (filtered by your assigned shop permissions)
+
+Report success with:
 
 ```
 Connected to ADUP!
 
-You manage [N] client shops:
+Role: <role>
+You can access [N] client shops:
   - Shop Name  (shop-slug) — Facebook Ads, Google Ads
   ...
 ```
 
+If your role is `read_only`, mention that you can only read data — you can still run reads/analyses but cannot propose changes.
+
+If your role is `analyst`, mention that any change you propose will always go to `pending_review` and require a manager/team_lead/owner to approve.
+
 If it fails with an auth error:
-> The key doesn't seem to be valid. Double-check it at tara.adup.io/settings/api and try again.
+> The key doesn't seem to be valid. Ask your agency owner to verify your invitation in the portal Team page, or to regenerate your key.
 
 **If successful, proceed to Step 5.**
 
@@ -330,6 +341,10 @@ Try: "How are my campaigns doing?" to start exploring.
 ### 8. Optional: Deploy for single client only
 
 If the user says they only want to set up tasks for a specific client, ask which client and only create report folders for that one. The scheduled tasks themselves loop through all clients automatically, so no change needed — but the report folder only needs to be created for the requested client.
+
+### 9. Sync your org's installed skills
+
+After API key + report folders + scheduled tasks are set up, run `/adup:sync-skills` to pull any org-installed or org-private skills your agency has added in the portal. Restart Claude Code once after the sync so the new skills become available.
 
 ## Notes
 
