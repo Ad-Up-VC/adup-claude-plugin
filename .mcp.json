@@ -62,6 +62,13 @@
       "headers": {
         "Authorization": "Bearer ${ADUP_API_KEY}"
       }
+    },
+    "adup-custom": {
+      "type": "http",
+      "url": "https://gateway.adup.io/mcp/custom",
+      "headers": {
+        "Authorization": "Bearer ${ADUP_API_KEY}"
+      }
     }
   }
 }
