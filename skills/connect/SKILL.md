@@ -55,11 +55,17 @@ After listing shops, briefly remind the user what their role allows:
 
 If your agency owner has installed additional skills (e.g., "LinkedIn Engagement Analysis") in the ADUP portal, run `/adup:sync-skills` to pull them into your local Claude. They'll be available after a Claude restart.
 
-## Switching shops — auto tool refresh
+## Switching shops — refresh the tool list
 
-Once a shop is set with `set_active_shop`, the gateway automatically refreshes the tool list on every platform connector (`adup-facebook`, `adup-google-ads`, etc.) for the new shop's scope. No manual refresh is needed — the next tool call on each platform connector triggers a `notifications/tools/list_changed` SSE event piggybacked on its response, and Claude Code re-fetches the tool list transparently.
+All tools are served by the single `adup` connector, namespaced per platform
+(e.g. `facebook__get_campaigns`, `google_ads__search_google_ads_data`). After you
+call `set_active_shop`, the available tools change to that shop's connected
+platforms. The gateway emits a `notifications/tools/list_changed`, but most MCP
+clients don't act on it automatically — so **reload tools / reconnect the
+connector** to pick up the newly-active shop's tools.
 
-If a shop only has Facebook Ads + GA4 connected, only `adup-facebook` and `adup-ga4` will return tools — the other platform connectors return empty tool lists.
+Only connected platforms appear: if a shop has just Facebook Ads + GA4 connected,
+you'll see only `facebook__*` and `ga4__*` tools.
 
 ## Error handling
 

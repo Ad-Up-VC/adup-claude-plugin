@@ -5,22 +5,24 @@
 ## Phase 0 state
 Unmodified copy of `adup-claude-plugin`. Single `adup` connector in `.mcp.json`. 21 bundled skills. 1 agent (`adup-analyst.md`). Chat-stream references in skills cleaned.
 
-## .mcp.json (current → Phase 1)
-Currently: single connector `adup → https://gateway.adup.io/mcp`.
-Phase 1: rewrite to 9 connectors:
-- `adup` (base — 2 virtual tools: `list_shops`, `set_active_shop`)
-- `adup-facebook` → `/mcp/facebook`
-- `adup-google-ads` → `/mcp/google_ads`
-- `adup-ga4` → `/mcp/ga4`
-- `adup-gsc` → `/mcp/gsc`
-- `adup-linkedin` → `/mcp/linkedin`
-- `adup-hubspot` → `/mcp/hubspot`
-- `adup-intercom` → `/mcp/intercom`
-- `adup-tiktok` → `/mcp/tiktok`
-All pass `Authorization: Bearer ${ADUP_API_KEY}`.
+## .mcp.json — single aggregated connector
+ONE connector: `adup → https://gateway.adup.io/mcp` (auth `Authorization: Bearer ${ADUP_API_KEY}`).
+The gateway's base `/mcp` connector AGGREGATES every connected platform's tools for
+the active shop, namespaced `platform__tool` (e.g. `facebook__get_campaigns`,
+`google_ads__search_google_ads_data`), plus the virtual `list_shops` /
+`set_active_shop`. Per-platform `/mcp/{platform}` connectors still exist
+server-side (backward-compat) but the plugin no longer lists them — one connector
+serves everything, so a single `ADUP_API_KEY` covers all platforms.
+
+> History: an earlier "Phase 1" briefly split this into 9 connectors (base + one
+> per platform). Reverted in favour of base-connector aggregation (tara-gateway
+> PR #57) because single-URL clients (Claude.ai / Cowork web connector) can only
+> add ONE connector URL.
 
 ## Shop-change tool renewal
-Gateway-side via `shopChangedTokens` Set + piggybacked `notifications/tools/list_changed` on each platform connector's next request. NO client-side refresh logic needed in the plugin.
+After `set_active_shop`, the gateway emits `notifications/tools/list_changed`, but
+most MCP clients (Claude Code / Cowork) don't act on it — reload tools / reconnect
+to pick up the newly-active shop's tools.
 
 ## Skill registration (Phase 4)
 On `initialize`, the plugin fetches `GET /api/v1/me/skills`. The response returns SKILL.md content for installed public skills + org-private skills. The plugin registers these dynamically alongside the bundled fallback skills.
