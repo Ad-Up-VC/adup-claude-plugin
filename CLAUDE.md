@@ -24,6 +24,30 @@ After `set_active_shop`, the gateway emits `notifications/tools/list_changed`, b
 most MCP clients (Claude Code / Cowork) don't act on it — reload tools / reconnect
 to pick up the newly-active shop's tools.
 
+## Selecting the client — per-call shop, concurrency-safe
+`set_active_shop` sets ONE ambient shop **per `ADUP_API_KEY`** in the gateway. That
+is fine for a single interactive session but races when multiple runs share the key
+(e.g. N scheduled automations at night): one run's `set_active_shop` clobbers
+another's active shop, so a data call can read the wrong client. The gateway resolves
+the target shop **per call** with precedence: (1) `shop_slug` tool argument →
+(2) `X-Shop-Slug` request header → (3) ambient active shop. Every aggregated platform
+tool advertises an optional `shop_slug`; the gateway strips it before proxying
+upstream, so this needs no MCP-server change.
+
+- **Interactive:** `set_active_shop` once, then call normally (ambient fallback).
+- **Multiple clients in one session / parallel:** pass `shop_slug="<slug>"` on each
+  data call (e.g. `google_ads__get_campaigns(shop_slug="nike", ...)`).
+- **Scheduled automations — one run per client (recommended, deterministic):** pin
+  the client on the connector via a header. Each run sets `ADUP_SHOP_SLUG` to its
+  client slug and uses:
+  ```json
+  { "mcpServers": { "adup": { "type": "http", "url": "https://gateway.adup.io/mcp",
+    "headers": { "Authorization": "Bearer ${ADUP_API_KEY}", "X-Shop-Slug": "${ADUP_SHOP_SLUG}" } } } }
+  ```
+  No `set_active_shop`, no shared state, no race — and it is multi-instance safe.
+  The bundled `.mcp.json` keeps the plain single-connector form for interactive use;
+  the header line above is the automation variant.
+
 ## Skill registration (Phase 4)
 On `initialize`, the plugin fetches `GET /api/v1/me/skills`. The response returns SKILL.md content for installed public skills + org-private skills. The plugin registers these dynamically alongside the bundled fallback skills.
 
