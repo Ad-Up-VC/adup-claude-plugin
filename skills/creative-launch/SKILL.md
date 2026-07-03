@@ -23,7 +23,11 @@ Environment: `ADUP_API_KEY` (personal employee key), API base `${ADUP_API_BASE:-
    - `_campaign.md` and `_adset.md` frontmatter from the enclosing folders.
    - Effective **platforms**: ad frontmatter → campaign frontmatter → workspace default (first one that sets it wins).
    - Effective **languages**: ad frontmatter → campaign frontmatter → `[workspace default language]`.
-   - **Creative group**: `creative:` field → files matching `assets/<group>_*` / `assets/<group>/<basename>_*`, or an https/Google Drive/Dropbox share link.
+   - **Creative group** — resolved detection-first (users can name files ANYTHING; ratios/formats come from actual pixels, never filenames):
+     1. `creative:` lists **explicit files** or a **folder** → that IS the group (a folder means every media file in it).
+     2. `creative:` is a stem/prefix, or the ad has no explicit list → group files in the matching `assets/` subfolder by **stem similarity**: strip extensions, separators (`-`, `_`, spaces), and resolution/ratio suffixes (`1080x1920`, `9x16`, `story`, `square`, …), then cluster near-identical stems.
+     3. An https/Google Drive/Dropbox share link is passed through for server-side fetch.
+     4. **Ambiguity → ask ONCE.** If grouping is not clear-cut (e.g. leftover files that fit no cluster, or two plausible clusterings), show the proposed grouping table (`file → detected ratio → group → placements`) and get one confirmation before continuing. Never guess silently on ambiguity.
 4. Skip ads with `status: proposed | approved | live` whose content is unchanged (compare sha256 of `ad.md` against `state.json` `content_hash`) — the launch is idempotent. Changed ads and `draft`/`ready`/`changes_requested` ads are in scope.
 5. Platform support gate: only **facebook** and **tiktok** support creation today. If an ad targets google, linkedin, or snapchat, keep the ad but mark that platform "not yet supported for creation — skipped" in the report. Never fail the launch over an unsupported platform.
 
@@ -35,13 +39,13 @@ For every referenced **local** media file, run:
 bash <plugin>/skills/creative-workspace/scripts/inspect.sh "<file>"
 ```
 
-Load `<plugin>/skills/creative-workspace/specs/platform-specs.json` and check, per ad x target platform:
+The **detected** `aspect_label` / format / duration from inspect.sh (and, for already-uploaded or from-url assets, the server's extracted metadata in `state.json`) is the source of truth for every check below. Load `<plugin>/skills/creative-workspace/specs/platform-specs.json` and check, per ad x target platform:
 
-- **Ratio token vs pixels**: filename token must equal `aspect_label`.
-- **Placement fit**: the group must contain at least one file whose ratio is accepted by the platform (e.g. TikTok in_feed wants 9x16; Meta feed wants 1x1/4x5). Files whose ratio a platform doesn't accept are simply filtered out for that platform — only an EMPTY result after filtering is an error.
+- **Optional ratio-token hint**: if a filename contains a ratio token that matches detection, say nothing. If it **contradicts** detection, **detection wins** — show a WARN ("hero_4x5.jpg is actually 1080x1080 (1x1); launching as 1x1") and continue. This is never an error.
+- **Placement fit**: the group must contain at least one file whose **detected** ratio is accepted by the platform (e.g. TikTok in_feed wants 9x16; Meta feed wants 1x1/4x5). Files whose detected ratio a platform doesn't accept are simply filtered out for that platform — only an EMPTY result after filtering is an error.
 - **min_px / max_mb / duration_s / mime** per the spec file.
 - **Text limits** per section: `soft` exceeded = WARN (truncation), `hard` exceeded = ERROR. Check the copy variant actually used per platform/language (see fan-out rules).
-- **Frontmatter**: `link` is a valid URL, `cta` is a known value, `format` matches the assets (carousel needs `card1_*`… files or `## Card n` sections; 2–10 cards).
+- **Frontmatter**: `link` is a valid URL, `cta` is a known value, `format` matches the detected assets (carousel needs an unambiguous per-card asset order — explicit `creative:` lines per `## Card n` section or `card1*`/`card2*`… names; 2–10 cards).
 - **Targets**: `map:` provides the platform's campaign/adset (facebook) or campaign/adgroup + `identity_id` (tiktok). If TikTok `identity_id` is missing, call `tiktok__get_tiktok_identities`, show the options, ask the user to pick, and (with their OK) record it in `_adset.md` — this is the one file edit allowed during validation.
 - Drive/https creatives can't be probed locally: mark them "server will validate on fetch" (WARN, not ERROR).
 
@@ -50,7 +54,7 @@ Present ONE consolidated report table: `ad | platform | check | severity | detai
 **Auto-fix policy — strict:**
 - The ONLY permitted auto-fix is an image **downscale/re-export** (too-large file or oversize pixels), e.g. `sips -Z 1080 in.jpg --out out.jpg` or a JPEG re-export to get under max_mb. Always show the exact command and **ask for confirmation first**; write the fixed file next to the original (never overwrite silently).
 - **NEVER auto-truncate or rewrite copy.** For text over a limit, propose a shorter version as a suggested `ad.md` edit (show old → new) and let the user accept the edit or write their own. The file is only changed after they agree.
-- Anything else (wrong ratio, missing files, bad video duration) = user must fix.
+- Anything else (no accepted ratio left for a platform, missing files, bad video duration) = user must fix. (A filename token contradicting detection is NOT on this list — that's the detection-wins warning above, never a blocker.)
 
 **Hard stop:** if any ERROR remains, stop and show the fix list. Only continue with the unaffected ads if the user explicitly says to **launch the valid ones**.
 
@@ -96,7 +100,7 @@ Do not proceed without an explicit yes. If N is surprisingly large (language × 
 
 **Fan-out rules:**
 - **Copy resolution** (most specific wins): `## Primary text (tiktok, nl)` → `## Primary text (nl)` → `## Primary text (tiktok)` → `## Primary text`. Same for `## Headline` / `## Description`. TikTok uses only primary text (no headline/description fields).
-- **Creative group filtered per platform** using platform-specs.json: Meta gets all accepted ratios of the group (1x1 + 4x5 + 9x16 for multi-placement), TikTok gets the 9x16 (or other accepted) file. Language-suffixed files (`hero_9x16_nl.mp4`) are used only for that language variant.
+- **Creative group filtered per platform** using platform-specs.json, keyed off each file's **DETECTED** ratio (never the filename): Meta gets all accepted ratios of the group (1x1 + 4x5 + 9x16 for multi-placement), TikTok gets the 9x16 (or other accepted) file. Language-suffixed files (`hero_9x16_nl.mp4` — the `_nl` part) are used only for that language variant; language is the one thing detection can't infer, so it stays name-based.
 - **Targets pinned by `map:`** — no magic mirroring: facebook ads go to `map.facebook.adset_id`, tiktok ads to `map.tiktok.adgroup_id`.
 - **`map.<platform>.create: true`** (new campaign/ad set) is **two-phase** in v1: propose the campaign/ad set creation first (`facebook__ads_campaign_create` / `facebook__ads_adset_create` / `tiktok__propose_create_campaign` / `tiktok__propose_create_adgroup`, each with `batch_id`), then tell the user to approve those in the portal and run `/adup:status` to capture the created ids into `map:` — THEN re-run `/adup:launch` for the ads. Do not chain unresolved parent ids in one batch.
 - **Enhancements**: read `defaults.enhancements` from workspace.json — `off` → pass `enhancements_opt_out: true` on every Meta creative; `on` → `false`; `ask` → ask once per launch. Never re-ask when it's `off`/`on`.
@@ -141,5 +145,5 @@ Ads Manager / TikTok Ads Manager when you're ready to spend.
 2. **PAUSED always** — restate it in the summary every time.
 3. **One batch id per launch** — makes the whole launch one reviewable unit in the portal.
 4. **Idempotent** — unchanged ads and already-uploaded checksums are skipped; re-running a launch never duplicates uploads or proposals.
-5. **Stop-and-ask points**: image auto-fix, copy rewrite suggestions, TikTok identity pick, the proposal-count confirmation, and launching-only-the-valid-ones. Never assume.
+5. **Stop-and-ask points**: ambiguous creative grouping (show the grouping table), image auto-fix, copy rewrite suggestions, TikTok identity pick, the proposal-count confirmation, and launching-only-the-valid-ones. Never assume.
 6. **Never auto-truncate copy.** Ever.

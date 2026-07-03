@@ -5,13 +5,14 @@ description: Initialize or health-check a local creative workspace for bulk ad l
 
 # Creative Workspace (init + doctor)
 
-A creative workspace is a local folder — one per client/brand — that is the **source of truth** for ads: markdown copy + ratio-named media files. Claude validates, uploads, and proposes ads from it; humans approve in the ADUP portal.
+A creative workspace is a local folder — one per client/brand — that is the **source of truth** for ads: markdown copy + media files. **Files can be named anything** — Claude detects each file's ratio and format from its actual pixels/duration, not its name. Claude validates, uploads, and proposes ads from it; humans approve in the ADUP portal.
 
 **Invariant (restate to the user whenever relevant): nothing in this workspace ever reaches an ad platform directly. Launching creates PROPOSALS that must be approved in the ADUP portal, and even approved ads always land PAUSED on the platform.**
 
 Modes:
 - `/adup:creative-workspace init [folder]` — scaffold a new workspace
 - `/adup:creative-workspace doctor [folder]` — structural health check (report only, never modifies content)
+- `/adup:creative-workspace doctor --grouping [folder]` — grouping preview: show how assets would be grouped and mapped at launch, nothing else
 
 ---
 
@@ -25,8 +26,8 @@ acme-nl/                              ← workspace root = ONE shop (agency: sib
 │   └── state.json                    ← sync ledger (asset checksums → asset_ids; ads → proposal ids)
 ├── assets/                           ← SHARED creative library (one video reused by 10 ads = stored once)
 │   └── summer-sale/                  ← concept folder
-│       ├── hero_1x1.jpg              ← {concept}_{ratio}[_{lang}].{ext}
-│       ├── hero_4x5.jpg
+│       ├── hero_1x1.jpg              ← naming is optional — Tara detects ratios automatically
+│       ├── hero_4x5.jpg              ←   (tokens shown here purely for human readability)
 │       └── hero_9x16.mp4
 └── campaigns/
     └── 2026-07_summer-sale/          ← campaign folder
@@ -37,8 +38,13 @@ acme-nl/                              ← workspace root = ONE shop (agency: sib
                 └── ad.md             ← frontmatter + copy sections
 ```
 
-- **Ratio tokens** in filenames: `1x1`, `4x5`, `9x16`, `16x9`, `191x100`. All files sharing a concept prefix (`hero_*`) form one **creative group** → one multi-placement ad. The token must match the file's actual pixels (validated by `scripts/inspect.sh`; mismatch = validation error at launch).
-- Optional language suffix: `hero_9x16_nl.mp4` is used for the `nl` variant only.
+- **Detection first — name files ANYTHING.** Each file's ratio (`1x1`, `4x5`, `9x16`, `16x9`, `191x100`) and format (image/video) are determined from its **actual pixels and duration**: locally via `scripts/inspect.sh`, and authoritatively from the server's extracted metadata after upload. The filename is never the source of truth.
+- **Creative groups** (one group → one multi-placement ad) are formed in this order:
+  1. An ad.md's `creative:` field lists **explicit files** or a **folder** — that IS the group.
+  2. Otherwise, files in the same `assets/` subfolder group by **stem similarity**: strip extensions, separators (`-`, `_`, spaces), and resolution/ratio suffixes (`1080x1080`, `9x16`, `story`, `square`, …), then cluster near-identical stems (`Hero Final.jpg` + `hero-final-story.mp4` → one group).
+  3. When ambiguity remains, Claude shows its proposed grouping table (`file → detected ratio → group → placements`) and asks ONE confirmation before proceeding — it never guesses silently on ambiguity.
+- **Ratio tokens in filenames are an OPTIONAL hint.** When a token is present and matches detection: silent. When it contradicts detection: **detection wins** and a warning is shown (this is a warning, not an error — the file still launches with its detected ratio).
+- Optional language suffix: `hero_9x16_nl.mp4` is used for the `nl` variant only (language cannot be detected from pixels, so this one convention stays name-based).
 - **Ad lifecycle** (`status:` in ad.md): `draft` → `ready` → `uploaded` → `proposed` → `approved` → `live` (still PAUSED on-platform). Side exits: `changes_requested` (denial notes written into `## Review feedback`), `rejected`.
 
 ---
@@ -156,7 +162,8 @@ Audience / placement notes.
 ---
 status: draft                        # draft → ready → uploaded → proposed → approved → live
 format: single                       # single | video | carousel
-creative: summer-sale/hero           # creative group: matches assets/summer-sale/hero_*.{jpg,mp4}
+creative: summer-sale/hero           # creative group: a folder (assets/summer-sale/), explicit file list,
+                                     # or a stem prefix — ratios are DETECTED from pixels, not names
                                      # (a Google Drive/Dropbox share link also works here)
 link: https://acme.nl/summer-sale
 cta: SHOP_NOW                        # SHOP_NOW | LEARN_MORE | SIGN_UP | CONTACT_US | BOOK_TRAVEL
@@ -178,7 +185,7 @@ Free shipping on every order.
 
 Per-platform and per-language copy variants use qualified section headings, most specific wins:
 `## Primary text (tiktok, nl)` > `## Primary text (nl)` / `## Primary text (tiktok)` > `## Primary text`.
-Carousel ads add `## Card 1` … `## Card N` sections (each with its own text + optional `link:` line) and card assets named `card1_1x1.jpg`, `card2_1x1.jpg`, …
+Carousel ads add `## Card 1` … `## Card N` sections (each with its own text + optional `link:` line) and one asset per card — list them explicitly per card (a `creative:` line inside each `## Card n` section) or name them `card1*`, `card2*`, … so the card order is unambiguous. Card ratios are detected from pixels like everything else.
 
 ### Step 6 — Offer git init
 
@@ -193,7 +200,7 @@ cd <workspace-root> && git init && printf '.adup/state.json\n.DS_Store\n' > .git
 ### Step 7 — Wrap up
 
 Summarize: workspace path, shop, defaults, enhancements answer. Tell the user:
-> Drop media into `assets/<concept>/` using ratio names (`hero_1x1.jpg`, `hero_9x16.mp4`), write ads as `ad.md` files, then run `/adup:launch`. Everything I launch becomes a **proposal** for approval in the ADUP portal, and approved ads always start **PAUSED**.
+> Drop media into `assets/<concept>/` — **any file names work**, I detect each file's ratio and format from its actual pixels. Write ads as `ad.md` files, then run `/adup:launch`. Everything I launch becomes a **proposal** for approval in the ADUP portal, and approved ads always start **PAUSED**.
 
 ---
 
@@ -208,12 +215,26 @@ Run these checks from the workspace root:
 3. **Orphan assets** — files under `assets/` whose concept group is not referenced by any `ad.md` `creative:` field. (Informational — orphans cost nothing until uploaded.)
 4. **Missing creative groups** — every `ad.md` `creative:` value resolves to ≥1 file in `assets/` (or is an https/Drive link). An ad with `status: ready|uploaded|proposed` and no files = error.
 5. **Stale state entries** — `state.json` assets whose checksum matches no current local file (renamed is fine — keyed by checksum, so only report when the bytes are gone); `state.json` ads whose folder path no longer exists.
-6. **Ratio-token vs pixels** — for each asset file with a ratio token, run:
+6. **Detection + optional-token hint** — for every asset file, run:
    ```bash
    bash <plugin>/skills/creative-workspace/scripts/inspect.sh <file>
    ```
-   and compare `aspect_label` to the filename token. Mismatch = error (would fail at launch).
+   The detected `aspect_label` is authoritative. If the filename happens to contain a ratio token that **contradicts** detection, report a WARN ("filename says 4x5, actual pixels are 1080x1080 = 1x1 — detection wins at launch; consider renaming or ignore"). A token that matches, or no token at all, is silent/OK. Detected `aspect_label: "other"` = WARN (no placement on any platform will accept it).
 7. **Frontmatter completeness** — every `ad.md` has `status`, `format`, `creative`, `link`, `cta`; `_campaign.md` in scope has `map:` entries for every platform its ads target; TikTok-targeting ad sets have `identity_id` in `_adset.md`.
 8. **Lifecycle sanity** — `status: proposed|approved|live` ads exist in `state.json` with proposal ids (otherwise state was lost — suggest re-running /adup:launch, which is idempotent by checksum).
 
-Output a table: `check | status (OK/WARN/ERROR) | detail`, followed by a numbered **fix list** ("1. Rename assets/summer-sale/hero_4x5.jpg — actual pixels are 1080x1080 (1x1)…"). Offer to apply fixes only if the user explicitly asks, one confirmation per fix.
+Output a table: `check | status (OK/WARN/ERROR) | detail`, followed by a numbered **fix list** ("1. assets/summer-sale/hero.mp4 is 3000x3000 — no accepted placement; provide a 9x16 export for TikTok…"). Offer to apply fixes only if the user explicitly asks, one confirmation per fix.
+
+### Grouping preview (`doctor --grouping`)
+
+A focused dry-run of launch-time grouping — the fast way to answer "how will Tara read my files?". For every `assets/` subfolder (or the one the user names), run `inspect.sh` on each file and print the exact grouping table that launch would use:
+
+```
+file                          detected      group        placements (per platform)
+assets/summer-sale/
+  Hero Final.jpg              1x1  image    hero         facebook: feed, carousel_card
+  hero-final-story.mp4        9x16 video    hero         facebook: stories_reels · tiktok: in_feed
+  IMG_4123.png                4x5  image    (ungrouped)  facebook: feed
+```
+
+Apply the same stem-similarity rules as launch; flag `(ungrouped)` files, ambiguous clusters (with the confirmation question launch would ask), and any filename-token-vs-detection contradictions (WARN, detection wins). Report-only, like the rest of doctor.

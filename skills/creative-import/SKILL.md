@@ -38,7 +38,7 @@ Platforms serve **renditions**, not original files — a downloaded thumbnail is
 
 > I need the original media file (the one used to make this ad). Can you drop it into the workspace, point me at it, or paste a Google Drive link? Platform downloads are compressed renditions, so the original gives the best result on the new platform.
 
-Place/copy it into `assets/<concept>/` with correct ratio naming (run `scripts/inspect.sh` to verify the ratio token; e.g. `winner-ugc_9x16.mp4`). A Drive link can instead go directly into the ad.md `creative:` field (fetched server-side at launch). Only if the user truly has no original, accept their explicit go-ahead to use a rendition — and warn about quality.
+Place/copy it into `assets/<concept>/` — **any file name works**: the ratio and format are detected from the file's actual pixels/duration (run `scripts/inspect.sh` to preview what launch will detect, e.g. `aspect_label: 9x16`). A ratio token in the name (`winner-ugc_9x16.mp4`) is an optional readability hint; if it ever contradicts detection, detection wins with a warning. A Drive link can instead go directly into the ad.md `creative:` field (fetched server-side at launch, where the server's extracted metadata plays the same role). Only if the user truly has no original, accept their explicit go-ahead to use a rendition — and warn about quality.
 
 ### Step 4 — Scaffold the draft ad
 
