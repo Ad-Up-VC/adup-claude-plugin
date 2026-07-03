@@ -24,7 +24,7 @@ If the user named a specific ad, look it up. Otherwise find candidates with the 
 
 - Facebook: `facebook__get_ad_insights` (CTR/CPA/ROAS per ad) + `facebook__get_ads` / `facebook__ads_get_creatives` for names and creative details
 - TikTok: the TikTok report tools if available for the shop
-- Google/LinkedIn: their performance tools (import FROM these platforms is fine even though creation TO them isn't supported yet)
+- Google/LinkedIn: their performance tools (creation TO them is supported too — google as RSA text ads, linkedin as single image/video ads)
 
 Rank by the account's primary KPI (ask if unclear: ROAS, CPA, or CTR), show the top 3–5 with numbers, and let the user confirm which ad to import.
 

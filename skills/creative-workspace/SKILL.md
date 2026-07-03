@@ -73,7 +73,7 @@ Store the answer in `workspace.json` under `defaults.enhancements`. Default to `
 
 ### Step 4 — Ask for defaults
 
-- Default platforms for new ads (e.g. `["facebook", "tiktok"]`). Only facebook and tiktok support creation today; google, linkedin, and snapchat are **not yet supported for creation** — they can be listed but /adup:launch will skip them with a note.
+- Default platforms for new ads (e.g. `["facebook", "tiktok"]`). Creation is supported for facebook, tiktok, google (RSA text ads only — no media), and linkedin (single image/video ads); snapchat is **not yet supported for creation** — it can be listed but /adup:launch will skip it with a note.
 - Default language (e.g. `"en"`).
 
 ### Step 5 — Scaffold

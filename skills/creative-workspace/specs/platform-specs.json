@@ -59,8 +59,8 @@
     }
   },
   "google": {
-    "creation_supported": false,
-    "notes": "Creation via ADUP not yet supported — validation reference only (Responsive Display / RSA). Text limits are hard API limits per asset.",
+    "creation_supported": true,
+    "notes": "Creation via ADUP supported for RSA TEXT ads only (propose_google_create_rsa) — no media assets in v1, so creative groups are never uploaded for google. RSA needs 3-15 headlines (max 30 chars each) and 2-4 descriptions (max 90 chars each). The responsive_display_image placement below remains validation reference only. Text limits are hard API limits per asset.",
     "placements": {
       "responsive_display_image": {
         "ratios": ["191x100", "1x1"],
@@ -75,8 +75,8 @@
     }
   },
   "linkedin": {
-    "creation_supported": false,
-    "notes": "Creation via ADUP not yet supported — validation reference only (Single Image / Video ads). Intro text truncates around 150 chars on most surfaces.",
+    "creation_supported": true,
+    "notes": "Creation via ADUP supported for Single Image and Video ads (propose_linkedin_create_ad with asset_id + intro_text/headline). Intro text truncates around 150 chars on most surfaces.",
     "placements": {
       "single_image": {
         "ratios": ["191x100", "1x1", "4x5"],

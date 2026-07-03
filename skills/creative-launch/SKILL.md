@@ -29,7 +29,7 @@ Environment: `ADUP_API_KEY` (personal employee key), API base `${ADUP_API_BASE:-
      3. An https/Google Drive/Dropbox share link is passed through for server-side fetch.
      4. **Ambiguity → ask ONCE.** If grouping is not clear-cut (e.g. leftover files that fit no cluster, or two plausible clusterings), show the proposed grouping table (`file → detected ratio → group → placements`) and get one confirmation before continuing. Never guess silently on ambiguity.
 4. Skip ads with `status: proposed | approved | live` whose content is unchanged (compare sha256 of `ad.md` against `state.json` `content_hash`) — the launch is idempotent. Changed ads and `draft`/`ready`/`changes_requested` ads are in scope.
-5. Platform support gate: only **facebook** and **tiktok** support creation today. If an ad targets google, linkedin, or snapchat, keep the ad but mark that platform "not yet supported for creation — skipped" in the report. Never fail the launch over an unsupported platform.
+5. Platform support gate (`creation_supported` in platform-specs.json): **facebook**, **tiktok**, **google** (RSA text ads only — no media), and **linkedin** (single image/video ads) support creation today. If an ad targets **snapchat**, keep the ad but mark that platform "not yet supported for creation — skipped" in the report. Never fail the launch over an unsupported platform.
 
 ## Step 2 — VALIDATE (report first, fix only with permission)
 
@@ -45,6 +45,7 @@ The **detected** `aspect_label` / format / duration from inspect.sh (and, for al
 - **Placement fit**: the group must contain at least one file whose **detected** ratio is accepted by the platform (e.g. TikTok in_feed wants 9x16; Meta feed wants 1x1/4x5). Files whose detected ratio a platform doesn't accept are simply filtered out for that platform — only an EMPTY result after filtering is an error.
 - **min_px / max_mb / duration_s / mime** per the spec file.
 - **Text limits** per section: `soft` exceeded = WARN (truncation), `hard` exceeded = ERROR. Check the copy variant actually used per platform/language (see fan-out rules).
+- **Google (RSA) shape**: an ad targeting google needs 3–15 headline variants (≤30 chars each) and 2–4 description variants (≤90 chars each) — see the google fan-out rules; too few usable variants = ERROR for the google target only. Media checks don't apply to google (text-only in v1).
 - **Frontmatter**: `link` is a valid URL, `cta` is a known value, `format` matches the detected assets (carousel needs an unambiguous per-card asset order — explicit `creative:` lines per `## Card n` section or `card1*`/`card2*`… names; 2–10 cards).
 - **Targets**: `map:` provides the platform's campaign/adset (facebook) or campaign/adgroup + `identity_id` (tiktok). If TikTok `identity_id` is missing, call `tiktok__get_tiktok_identities`, show the options, ask the user to pick, and (with their OK) record it in `_adset.md` — this is the one file edit allowed during validation.
 - Drive/https creatives can't be probed locally: mark them "server will validate on fetch" (WARN, not ERROR).
@@ -60,7 +61,7 @@ Present ONE consolidated report table: `ad | platform | check | severity | detai
 
 ## Step 3 — UPLOAD (to ADUP infrastructure only — inert until approval)
 
-For each unique local file used by in-scope ads:
+For each unique local file used by in-scope ads (**google never consumes assets** — its ads are text-only RSAs, so skip upload entirely for ads whose only target is google):
 
 1. Compute `shasum -a 256`. If the checksum already exists in `state.json` `assets`, reuse the recorded `asset_id` — no upload.
 2. Otherwise run:
@@ -92,7 +93,7 @@ uuidgen | tr '[:upper:]' '[:lower:]'
 
 Compute the fan-out (see rules below) and **ask before proposing anything**:
 
-> This launch creates **N proposals** (X ads × platforms × languages: 12 facebook, 12 tiktok; 2 platforms skipped as not yet supported). All of them go to the approval queue in the ADUP portal — nothing goes live, and approved ads land PAUSED. Continue?
+> This launch creates **N proposals** (X ads × platforms × languages: 12 facebook, 12 tiktok, 3 google; snapchat skipped as not yet supported). All of them go to the approval queue in the ADUP portal — nothing goes live, and approved ads land PAUSED. Continue?
 
 Do not proceed without an explicit yes. If N is surprisingly large (language × platform cartesian), point that out.
 
@@ -137,6 +138,15 @@ Use `facebook__ads_creative_create` (same creative params + `batch_id`) only whe
 - `asset_id` of the platform-filtered video, ad text (the resolved primary text, hard 100 chars), landing page URL, CTA,
 - `batch_id`, `reasoning`, and `metadata` with the `platform_targets` object above.
 
+**Google** (per ad × language) — google ads are **TEXT ads**: an ad targeting google maps to `google__propose_google_create_rsa` (Responsive Search Ad). The creative group is **NOT uploaded** for google — no media in v1.
+- Derive **3–15 headlines (≤30 chars each)** from the ad's `## Headline` section(s) and **2–4 descriptions (≤90 chars each)** from `## Description` section(s) (qualified `(google)` variants win as usual). One headline/description is rarely enough — **Claude drafts additional variants from the ad's copy (primary text included) and confirms the full list with the user before proposing**; never invent variants silently.
+- Call with: the RSA headline/description arrays, `final_url` (= `link`), the campaign/ad group from `map.google` (`campaign_id`, `adgroup_id`), `batch_id`, `reasoning`, and `metadata.platform_targets`.
+
+**LinkedIn** (per ad × language) — call `linkedin__propose_linkedin_create_ad` (single image or video ad) with:
+- the `map.linkedin` target (`campaign_id`), `asset_id` of the platform-filtered file (linkedin accepts 191x100/1x1/4x5 images, 16x9/1x1/9x16 video per platform-specs.json),
+- `intro_text` (the resolved primary text) and `headline`, plus `link`/CTA where applicable,
+- `batch_id`, `reasoning`, and `metadata` with the `platform_targets` object above.
+
 Each call returns `Proposal created. ID: …`. Collect every proposal id. If a call fails, keep going, and list failures at the end (those ads stay `uploaded`).
 
 ## Step 6 — WRITE BACK + summary
@@ -153,7 +163,7 @@ Launch complete — 24 proposals created (batch 3f2a…)
   ...
 
 Review & approve: https://tara.adup.io/proposals?batch=<batch_id>
-Skipped: linkedin (not yet supported for creation), 1 unchanged ad.
+Skipped: snapchat (not yet supported for creation), 1 unchanged ad.
 
 Nothing has touched any ad platform yet. After approval in the portal,
 ads are created on the platform in PAUSED state — activate them from
