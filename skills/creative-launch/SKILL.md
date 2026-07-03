@@ -120,6 +120,12 @@ Do not proceed without an explicit yes. If N is surprisingly large (language × 
 - **`map.<platform>.create: true`** (new campaign/ad set) is **two-phase** in v1: propose the campaign/ad set creation first (`facebook__ads_campaign_create` / `facebook__ads_adset_create` / `tiktok__propose_create_campaign` / `tiktok__propose_create_adgroup`, each with `batch_id`), then tell the user to approve those in the portal and run `/adup:status` to capture the created ids into `map:` — THEN re-run `/adup:launch` for the ads. Do not chain unresolved parent ids in one batch.
 - **Enhancements**: read `defaults.enhancements` from workspace.json — `off` → pass `enhancements_opt_out: true` on every Meta creative; `on` → `false`; `ask` → ask once per launch. Never re-ask when it's `off`/`on`.
 
+**Bulk vs individual proposing.** Facebook and TikTok expose `propose_bulk_launch(ads[], shared_reasoning, batch_id?)` (`facebook__propose_bulk_launch` / `tiktok__propose_bulk_launch`): up to **50 ads per call**, with **all-or-nothing pre-validation** (one invalid spec rejects the whole call — fix and retry; nothing partial is filed).
+
+- When launching **>3 ads to one platform**, prefer ONE `propose_bulk_launch` call per platform: build the `ads[]` array from the already-validated ad specs (each element = the same fields the individual tool would take, incl. `metadata.platform_targets`), set `shared_reasoning` to the one-sentence campaign rationale, and pass the launch's `batch_id`.
+- ≤3 ads, or platforms without the bulk tool (google, linkedin, snapchat initially): use the individual tools below. If a `propose_bulk_launch` call errors as unknown/unsupported on some platform, fall back gracefully to individual calls — never fail the launch over the missing bulk tool.
+- A successful bulk call returns one proposal id per ads[] element — record them in state.json exactly as with individual calls.
+
 **Facebook** (per ad × language) — call `facebook__ads_ad_create` with:
 - `adset_id` (from map), `name` (`<ad-folder> | <lang>` or the account's convention),
 - the creative spec inline: `asset_id`(s) from state.json, resolved primary text/headline/description, `link`, `cta`, `enhancements_opt_out`, and for `format: carousel` the `child_attachments` array (per card: asset_id, copy, link),
