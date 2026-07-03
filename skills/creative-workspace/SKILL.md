@@ -133,10 +133,19 @@ schedule:
   start: 2026-07-10
   end: 2026-08-10
 map:                                 # WHERE ads land, per platform. v1: use EXISTING ids.
+                                     # Map EVERY platform the campaign may run on — even ones an ad
+                                     # doesn't target yet: /adup:launch embeds all of them as
+                                     # metadata.platform_targets so a portal reviewer can tick
+                                     # "also launch on X" and the backend can auto-create the replica.
   facebook:
     campaign_id: "1202100000000000"  # from Ads Manager, or `create: true` (two-phase: approve campaign first)
   tiktok:
     campaign_id: "1780000000000000"
+    identity_id: "7000000000000001"  # from tiktok__get_tiktok_identities; campaign-level default
+                                     # (an _adset.md map.tiktok.identity_id overrides it)
+  snapchat:
+    adsquad_id: "aaaa1111-..."       # existing ad squad id
+    brand_name: "Acme"               # optional: brand name shown on Snap ads (defaults to shop name)
 ---
 
 Free-form campaign notes for context (audience insights, promo details, deadlines).

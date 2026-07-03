@@ -102,19 +102,34 @@ Do not proceed without an explicit yes. If N is surprisingly large (language × 
 - **Copy resolution** (most specific wins): `## Primary text (tiktok, nl)` → `## Primary text (nl)` → `## Primary text (tiktok)` → `## Primary text`. Same for `## Headline` / `## Description`. TikTok uses only primary text (no headline/description fields).
 - **Creative group filtered per platform** using platform-specs.json, keyed off each file's **DETECTED** ratio (never the filename): Meta gets all accepted ratios of the group (1x1 + 4x5 + 9x16 for multi-placement), TikTok gets the 9x16 (or other accepted) file. Language-suffixed files (`hero_9x16_nl.mp4` — the `_nl` part) are used only for that language variant; language is the one thing detection can't infer, so it stays name-based.
 - **Targets pinned by `map:`** — no magic mirroring: facebook ads go to `map.facebook.adset_id`, tiktok ads to `map.tiktok.adgroup_id`.
+- **`platform_targets` metadata on EVERY proposal.** Build one `platform_targets` object per ad from the merged `map:` blocks (`_campaign.md` + `_adset.md`, ad-set level wins) covering **ALL platforms configured for the campaign — not just the platform being proposed**, and pass it in each propose call's `metadata`:
+
+  ```json
+  "metadata": {
+    "platform_targets": {
+      "facebook": { "campaign_id": "1202…0000", "adset_id": "1202…0001" },
+      "tiktok":   { "campaign_id": "1780…0000", "adgroup_id": "1780…0001", "identity_id": "7000…0001" },
+      "snapchat": { "adsquad_id": "aaaa1111-…", "brand_name": "Acme" },
+      "linkedin": { "campaign_id": "urn:li:sponsoredCampaign:123…" },
+      "google":   { "campaign_id": "2094…", "adgroup_id": "1573…" }
+    }
+  }
+  ```
+
+  Include each platform's key(s) exactly as they appear under `map.<platform>` (only platforms actually present in `map:`; omit `create: true` phantoms). **Why:** the ADUP portal lets the reviewer tick "also launch on X" when approving a proposal — the backend can only auto-create the replica on platform X if these target ids are already embedded in the proposal. A proposal without `platform_targets` still works, but the reviewer loses the cross-platform option.
 - **`map.<platform>.create: true`** (new campaign/ad set) is **two-phase** in v1: propose the campaign/ad set creation first (`facebook__ads_campaign_create` / `facebook__ads_adset_create` / `tiktok__propose_create_campaign` / `tiktok__propose_create_adgroup`, each with `batch_id`), then tell the user to approve those in the portal and run `/adup:status` to capture the created ids into `map:` — THEN re-run `/adup:launch` for the ads. Do not chain unresolved parent ids in one batch.
 - **Enhancements**: read `defaults.enhancements` from workspace.json — `off` → pass `enhancements_opt_out: true` on every Meta creative; `on` → `false`; `ask` → ask once per launch. Never re-ask when it's `off`/`on`.
 
 **Facebook** (per ad × language) — call `facebook__ads_ad_create` with:
 - `adset_id` (from map), `name` (`<ad-folder> | <lang>` or the account's convention),
 - the creative spec inline: `asset_id`(s) from state.json, resolved primary text/headline/description, `link`, `cta`, `enhancements_opt_out`, and for `format: carousel` the `child_attachments` array (per card: asset_id, copy, link),
-- `batch_id`, and `reasoning` (one sentence: campaign + why).
+- `batch_id`, `reasoning` (one sentence: campaign + why), and `metadata` with the `platform_targets` object above.
 Use `facebook__ads_creative_create` (same creative params + `batch_id`) only when the user explicitly wants a reusable creative in the account library without an ad.
 
 **TikTok** (per ad × language) — call `tiktok__propose_create_ad` with:
 - `adgroup_id` + `identity_id` (from map), ad name,
 - `asset_id` of the platform-filtered video, ad text (the resolved primary text, hard 100 chars), landing page URL, CTA,
-- `batch_id`, `reasoning`.
+- `batch_id`, `reasoning`, and `metadata` with the `platform_targets` object above.
 
 Each call returns `Proposal created. ID: …`. Collect every proposal id. If a call fails, keep going, and list failures at the end (those ads stay `uploaded`).
 
