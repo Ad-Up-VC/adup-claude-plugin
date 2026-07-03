@@ -1,6 +1,6 @@
 ---
 name: status
-description: Sync proposal and ad statuses from the ADUP approval queue back into a local creative workspace. Updates state.json and ad.md status fields, writes denial notes into Review feedback sections, and prints a campaign board. Supports --csv (status.csv for stakeholders) and --sheet (write to a connected Google Sheets MCP).
+description: Sync proposal and ad statuses from the ADUP approval queue back into a local creative workspace. Updates state.json and ad.md status fields, writes denial notes into Review feedback sections, handles reviewer replication requests ("also launch on X"), and prints a campaign board. Supports --csv (status.csv for stakeholders) and --sheet (write to a connected Google Sheets MCP).
 ---
 
 # Creative Status (/adup:status)
@@ -60,7 +60,34 @@ An ad.md gets the "worst" status of its targets (any denial → `changes_request
 
    Never overwrite existing feedback entries; append new ones. After the user edits the copy, `/adup:launch` picks the ad up again (content hash changed) and re-proposes it.
 
-## Step 4 — Board output
+## Step 4 — Replication requests ("also launch on X")
+
+When a reviewer approves a proposal in the portal, they can tick extra platforms. When the backend could NOT auto-create the replica (missing/insufficient embedded `platform_targets`, or the platform needs new copy), it files a **replication request** for Claude to fulfil. Check for them every status run:
+
+```bash
+curl -s -H "Authorization: Bearer $ADUP_API_KEY" -H "Accept: application/json" \
+  "${ADUP_API_BASE:-https://centralapi.adup.io}/api/v2/employee/tara/actions/replication-requests?shop_slug=<shop_slug>&status=pending"
+```
+
+Each row carries `{id, platform, source_proposal (summary incl. entity_name + creative preview), notes, status}`. For each **pending** request:
+
+1. **Announce it**: "Reviewer asked to also launch '<entity_name>' on {platform}" (+ the reviewer's `notes`, if any).
+2. **Locate the source ad**: match the source proposal id against `state.json` `targets`. If the source isn't in this workspace, say so and offer to scaffold a fresh ad folder from the request's creative preview + copy.
+3. **Scaffold/adjust the `ad.md`**: add the platform to `platforms:`. If the source copy exceeds the target platform's limits (platform-specs.json), **draft platform-fit copy as a qualified section** (e.g. `## Primary text (tiktok)`) and **propose it to the user — never adjust copy silently**.
+4. **Launch**: with the user's go-ahead, run the normal `/adup:launch` flow for that ad scoped to the requested platform (validate → upload → propose; same batch/count-confirmation rules).
+5. **Close the request**:
+
+   ```bash
+   curl -s -X PATCH -H "Authorization: Bearer $ADUP_API_KEY" -H "Content-Type: application/json" -H "Accept: application/json" \
+     -d '{"status": "fulfilled", "fulfilled_proposal_id": "<new proposal id>"}' \
+     "${ADUP_API_BASE:-https://centralapi.adup.io}/api/v2/employee/tara/actions/replication-requests/<id>"
+   ```
+
+   If the user declines the replication, PATCH `{"status": "dismissed"}` instead (tell the user you're dismissing it so the reviewer sees it was seen). Leave the request untouched if the user wants to decide later.
+
+The new proposal goes through the normal approval queue like any launch — replication never bypasses the middleware, and the resulting ad still lands PAUSED.
+
+## Step 5 — Board output
 
 Print a campaign → ad → per-platform board:
 
@@ -74,6 +101,7 @@ acme-nl — status (synced 2026-07-03 14:02)
   retargeting/offer-static          facebook:en  proposed — awaiting review
 
 3 live · 1 approved · 4 proposed · 1 changes_requested
+1 replication request pending: "hero-video" → snapchat (see above)
 Approve pending: https://tara.adup.io/proposals?batch=<batch_id>
 ```
 
@@ -95,7 +123,7 @@ Same table as `--csv`, but pushed to a spreadsheet: if a Google Sheets MCP (or G
 
 ## Rules
 
-1. **One-way sync**: platform state → files. This skill never creates, approves, or denies proposals. (Approval happens in the ADUP portal.)
-2. **Never edit copy** — only the `status:` frontmatter field and the `## Review feedback` section.
+1. **One-way sync for statuses**: platform state → files. This skill never approves or denies proposals, and the only proposals it ever creates are replication-request fulfilments (Step 4) — explicitly user-confirmed and routed through the normal `/adup:launch` flow and approval queue.
+2. **Never edit copy silently** — status sync touches only the `status:` frontmatter field and the `## Review feedback` section; replication scaffolding may add `platforms:` entries and user-approved copy variant sections, nothing else.
 3. **Preserve unknown state**: if the gateway is unreachable, report the error and leave all files untouched.
 4. **Restate the PAUSED invariant** whenever anything reaches `live`.
