@@ -5,7 +5,7 @@ description: Sync proposal and ad statuses from the ADUP approval queue back int
 
 # Creative Status (/adup:status)
 
-Pulls the current status of every proposal a workspace has launched and writes it back into the files. The workspace stays the source of truth for *content*; the ADUP platform is the source of truth for *approval state* — this skill is the one-way sync from platform → files.
+Pulls the current status of every proposal a workspace has launched and writes it back into the files. The workspace stays the source of truth for *content*; the ADUP platform is the source of truth for *approval state* — this skill is the one-way sync from platform → files (plus fulfilment of reviewer **replication requests**, Step 4, which routes through the normal launch flow with the user's confirmation).
 
 Usage: `/adup:status [path] [--csv] [--sheet]`
 
@@ -101,7 +101,7 @@ acme-nl — status (synced 2026-07-03 14:02)
   retargeting/offer-static          facebook:en  proposed — awaiting review
 
 3 live · 1 approved · 4 proposed · 1 changes_requested
-1 replication request pending: "hero-video" → snapchat (see above)
+1 replication request pending: "hero-video" → linkedin (see above)
 Approve pending: https://tara.adup.io/proposals?batch=<batch_id>
 ```
 

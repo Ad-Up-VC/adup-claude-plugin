@@ -47,7 +47,7 @@ The **detected** `aspect_label` / format / duration from inspect.sh (and, for al
 - **Text limits** per section: `soft` exceeded = WARN (truncation), `hard` exceeded = ERROR. Check the copy variant actually used per platform/language (see fan-out rules).
 - **Google (RSA) shape**: an ad targeting google needs 3–15 headline variants (≤30 chars each) and 2–4 description variants (≤90 chars each) — see the google fan-out rules; too few usable variants = ERROR for the google target only. Media checks don't apply to google (text-only in v1).
 - **Frontmatter**: `link` is a valid URL, `cta` is a known value, `format` matches the detected assets (carousel needs an unambiguous per-card asset order — explicit `creative:` lines per `## Card n` section or `card1*`/`card2*`… names; 2–10 cards).
-- **Targets**: `map:` provides the platform's campaign/adset (facebook) or campaign/adgroup + `identity_id` (tiktok). If TikTok `identity_id` is missing, call `tiktok__get_tiktok_identities`, show the options, ask the user to pick, and (with their OK) record it in `_adset.md` — this is the one file edit allowed during validation.
+- **Targets**: `map:` provides each targeted platform's ids — campaign/adset (facebook), campaign/adgroup + `identity_id` (tiktok), campaign/adgroup (google), campaign (linkedin). If TikTok `identity_id` is missing, call `tiktok__get_tiktok_identities`, show the options, ask the user to pick, and (with their OK) record it in `_adset.md` — this is the one file edit allowed during validation.
 - Drive/https creatives can't be probed locally: mark them "server will validate on fetch" (WARN, not ERROR).
 
 Present ONE consolidated report table: `ad | platform | check | severity | detail`.
