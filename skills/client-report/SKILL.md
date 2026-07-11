@@ -1,9 +1,21 @@
 ---
 name: client-report
-description: Generate polished, client-ready performance reports with executive summaries, data-backed narratives, and account manager talking points. Outputs both markdown and PPTX. Follows the ADUP Report Design Guide for consistent tone, structure, and quality. Supports weekly, monthly, and custom date ranges.
+description: Generate polished, client-ready performance reports with executive summaries, data-backed narratives, and account manager talking points. Primary output is a whitelabel HTML report submitted to the ADUP platform review queue via create_report; PPTX remains available as a legacy option when explicitly requested. Follows the ADUP Report Design Guide and Report Contract for consistent tone, structure, and quality. Supports weekly, monthly, and custom date ranges.
 ---
 
 # Client-Ready Performance Report
+
+## Output path — HTML (primary) vs PPTX (legacy)
+
+There are two delivery paths. Choose ONE up front:
+
+- **HTML → platform review queue (DEFAULT).** Build a self-contained HTML report per
+  `templates/REPORT-CONTRACT.md` and submit it with the `create_report` MCP tool. A team
+  member reviews and approves it in the AdUp dashboard; only then does the client see it on
+  the agency's whitelabel portal. Use this path unless the user explicitly asks otherwise.
+- **PPTX + markdown to disk (LEGACY).** Only when the user explicitly asks for a PPTX,
+  PowerPoint, deck, or slides *file* — then follow "Step 5B — Legacy PPTX flow" below.
+  Do not offer it proactively; the platform path is the product.
 
 ## Pre-flight
 
@@ -13,8 +25,20 @@ description: Generate polished, client-ready performance reports with executive 
    - **Monthly:** last calendar month vs previous calendar month
    - **Custom:** user-specified date range vs equal-length previous period
 3. Identify all connected platforms for this client via `list_shops`
-4. Read the Report Design Guide at `~/Desktop/ADUP-Reports/templates/REPORT-DESIGN-GUIDE.md` for tone, structure, and quality rules
-5. Reference sample reports at `~/Desktop/ADUP-Reports/templates/weekly-report-sample.md` or `~/Desktop/ADUP-Reports/templates/monthly-report-sample.md` for the quality bar
+4. Read the plugin's `templates/REPORT-DESIGN-GUIDE.md` for tone, structure, and quality rules
+5. HTML path: read the plugin's `templates/REPORT-CONTRACT.md` — the authoritative HTML spec (structure, theming variables, print rules, size limits). Reference sample content quality via `templates/weekly-report-sample.md` / `templates/monthly-report-sample.md`
+6. **Optional platform tools — use when available.** Check the connector's tool list for
+   `get_report_template`, `get_report_branding`, and `get_kpi` (arriving in a later platform
+   phase). If exposed:
+   - `get_report_template(shop_slug)` FIRST — if a template exists, reuse its slide skeleton,
+     section order, components, and tone; swap in this period's data. Treat its edit journal
+     as standing corrections (e.g. if the agency renamed a metric label, keep the new name).
+   - `get_report_branding(shop_slug)` — populate the `--r-*` CSS variables and font stacks
+     from the returned branding tokens.
+   - `get_kpi(shop_slug, period)` — quote targets/budgets in the narrative ("CPA €22 vs the
+     €25 target").
+   If any of these tools is NOT in the tool list, fall back silently: contract defaults for
+   theming, no KPI quoting, structure from the Design Guide.
 
 ---
 
@@ -188,7 +212,61 @@ Reference creative playbook data:
 
 ---
 
-## Step 5 — Save Report Files
+## Step 5A — Primary: HTML Report → Platform Review Queue
+
+### Build the HTML
+
+Build a single self-contained HTML document **strictly per `templates/REPORT-CONTRACT.md`**
+(do not improvise on structure, theming variables, interactivity attributes, print rules, or
+size — the contract is authoritative and the server strips anything non-compliant). Content,
+tone, and section order follow `templates/REPORT-DESIGN-GUIDE.md` and Steps 3–4 above:
+cover slide (verdict on it), executive summary, performance overview table, monthly extras,
+what worked / what needs improvement, recommendations, attribution note, closing slide.
+Put methodology detail and extended tables in `data-expandable` deep-dive blocks.
+
+Theming: use `get_report_branding` values if the tool is available (Pre-flight 6); otherwise
+tasteful contract defaults.
+
+Run the contract's pre-submit checklist AND the Step 6 quality checklist before submitting.
+
+### Submit
+
+Call the `create_report` MCP tool:
+
+```
+create_report(
+  shop_slug="<slug>",
+  title="<Client Name> — <Monthly|Weekly> Report <Period>",
+  period_type="weekly" | "monthly" | "custom",
+  period_start="YYYY-MM-DD",
+  period_end="YYYY-MM-DD",
+  html="<the full document>"
+)
+```
+
+### Report back to the user
+
+Always tell the user:
+1. The **report ID** returned by the tool
+2. Status: **pending_review** — "a team member must approve it in the AdUp dashboard before the client sees it"
+3. Any **sanitizer warnings** returned by the tool — quote them **verbatim**
+
+### Sanitizer warnings — fix and resubmit
+
+There is no tool to update an existing report version in this phase (edits happen in the
+dashboard). So if the sanitizer warnings indicate content was stripped or altered (removed
+script/external resource/attribute, oversize image, etc.):
+1. Fix the HTML so it is fully contract-compliant
+2. Call `create_report` again with the corrected HTML
+3. Tell the user explicitly that this created a **second (duplicate) report** in the review
+   queue and that the reviewer should approve the newest one and discard the first
+
+If the warnings are informational only (nothing stripped that affects the rendered report),
+just surface them — do not resubmit.
+
+---
+
+## Step 5B — Legacy PPTX flow (only when the user explicitly asks for PPTX)
 
 ### File Naming Convention
 ```
@@ -234,7 +312,7 @@ Monthly: {client-slug}_monthly_{YYYY-MM-01}.md   + .pptx
 
 ---
 
-## Step 6 — Quality Checklist (Run Before Saving)
+## Step 6 — Quality Checklist (Run Before Submitting/Saving)
 
 Before finalizing, verify:
 
@@ -251,6 +329,13 @@ Before finalizing, verify:
 - [ ] No untranslated jargon (CPA → cost per customer, etc.)
 - [ ] Learning phase entities flagged but not judged
 - [ ] Performance table has bold blended/total row
+
+HTML path (5A) additionally:
+- [ ] `templates/REPORT-CONTRACT.md` pre-submit checklist passes (no script, `--r-*` vars, slide structure, print rules, size)
+- [ ] `create_report` called; report ID + pending_review status + verbatim sanitizer warnings relayed to the user
+- [ ] If content was stripped: regenerated compliant HTML, resubmitted, duplicate noted to the user
+
+Legacy PPTX path (5B) additionally:
 - [ ] File saved with correct naming convention
 - [ ] PPTX generated with correct slide structure
 - [ ] Finder opened to report folder
@@ -269,12 +354,14 @@ Before finalizing, verify:
 
 5. **Attribution note is mandatory.** Every report that combines platform and GA4 data must include it. No exceptions.
 
-6. **Follow the sample reports.** Reference `~/Desktop/ADUP-Reports/templates/weekly-report-sample.md` and `~/Desktop/ADUP-Reports/templates/monthly-report-sample.md` for the quality bar. Match their depth, tone, and structure.
+6. **Follow the sample reports.** Reference the plugin's `templates/weekly-report-sample.md` and `templates/monthly-report-sample.md` for the quality bar. Match their depth, tone, and structure.
 
 7. **Google Ads micros.** ALWAYS divide by 1,000,000. Displaying raw micros is a critical error.
 
 8. **Frame positively.** "Opportunity to improve" not "failing." Frame challenges as opportunities, not failures.
 
-9. **Save and open.** Always save to `~/Desktop/ADUP-Reports/`. Always generate PPTX. Always open Finder.
+9. **HTML is the default delivery.** Submit via `create_report` and relay report ID, pending_review status, and sanitizer warnings verbatim. PPTX/markdown-to-disk only when the user explicitly asks for a PPTX/PowerPoint/deck file (Step 5B) — then save to `~/Desktop/ADUP-Reports/`, generate the PPTX, and open Finder.
 
-10. **Monthly = strategic, weekly = tactical.** Monthly reports go deeper: funnel, utilization, channel mix, creative health, strategic recommendations. Weekly stays focused on this week's performance and next week's actions.
+10. **The contract is authoritative for HTML.** Never emit `<script>`, external resources, or your own interactivity JS; theme exclusively through the `--r-*` variables. If the sanitizer reports stripped content, regenerate compliant HTML and resubmit as a new report (there is no version-update tool yet), telling the user about the duplicate.
+
+11. **Monthly = strategic, weekly = tactical.** Monthly reports go deeper: funnel, utilization, channel mix, creative health, strategic recommendations. Weekly stays focused on this week's performance and next week's actions.
