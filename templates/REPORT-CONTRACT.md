@@ -78,8 +78,9 @@ This file governs only the HTML/CSS mechanics.
   hex/rgb outside `:root`.
 - The platform re-skins reports by overriding these eight variables — a report that hardcodes
   colors elsewhere breaks agency whitelabeling.
-- Values come from agency branding via the `get_report_branding` tool. Until that tool is
-  available (later phase), use tasteful defaults consistent with `REPORT-DESIGN-GUIDE.md`.
+- Values come from agency branding via the `get_report_branding` tool: inject its `css_vars`
+  object verbatim into `:root` (see the client-report skill, Step 5A.2). If that tool is
+  unavailable or errors, use tasteful defaults consistent with `REPORT-DESIGN-GUIDE.md`.
 
 ## 4. Print
 
