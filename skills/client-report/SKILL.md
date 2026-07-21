@@ -1,9 +1,21 @@
 ---
 name: client-report
-description: Generate polished, client-ready performance reports with executive summaries, data-backed narratives, and account manager talking points. Outputs both markdown and PPTX. Follows the ADUP Report Design Guide for consistent tone, structure, and quality. Supports weekly, monthly, and custom date ranges.
+description: Generate polished, client-ready performance reports with executive summaries, data-backed narratives, and account manager talking points. Primary output is a whitelabel HTML report submitted to the ADUP platform review queue via create_report; PPTX remains available as a legacy option when explicitly requested. Follows the ADUP Report Design Guide and Report Contract for consistent tone, structure, and quality. Supports weekly, monthly, and custom date ranges.
 ---
 
 # Client-Ready Performance Report
+
+## Output path — HTML (primary) vs PPTX (legacy)
+
+There are two delivery paths. Choose ONE up front:
+
+- **HTML → platform review queue (DEFAULT).** Build a self-contained HTML report per
+  `templates/REPORT-CONTRACT.md` and submit it with the `create_report` MCP tool. A team
+  member reviews and approves it in the AdUp dashboard; only then does the client see it on
+  the agency's whitelabel portal. Use this path unless the user explicitly asks otherwise.
+- **PPTX + markdown to disk (LEGACY).** Only when the user explicitly asks for a PPTX,
+  PowerPoint, deck, or slides *file* — then follow "Step 5B — Legacy PPTX flow" below.
+  Do not offer it proactively; the platform path is the product.
 
 ## Pre-flight
 
@@ -13,8 +25,17 @@ description: Generate polished, client-ready performance reports with executive 
    - **Monthly:** last calendar month vs previous calendar month
    - **Custom:** user-specified date range vs equal-length previous period
 3. Identify all connected platforms for this client via `list_shops`
-4. Read the Report Design Guide at `~/Desktop/ADUP-Reports/templates/REPORT-DESIGN-GUIDE.md` for tone, structure, and quality rules
-5. Reference sample reports at `~/Desktop/ADUP-Reports/templates/weekly-report-sample.md` or `~/Desktop/ADUP-Reports/templates/monthly-report-sample.md` for the quality bar
+4. Read the plugin's `templates/REPORT-DESIGN-GUIDE.md` for tone, structure, and quality rules
+5. HTML path: read the plugin's `templates/REPORT-CONTRACT.md` — the authoritative HTML spec (structure, theming variables, print rules, size limits). Reference sample content quality via `templates/weekly-report-sample.md` / `templates/monthly-report-sample.md`
+6. **Platform continuity + branding + KPI tools — call in this order (HTML path).** The
+   connector exposes three tools that make a report reuse last month's structure, wear the
+   agency's branding, and quote the brand's real targets. Call them for the HTML path BEFORE
+   building (details + exact return fields in "Step 5A"): `get_report_template` FIRST (reuse
+   the last approved skeleton + carry forward the agency's edits), then `get_report_branding`
+   (the `--r-*` colors/fonts + logos), then `get_kpi` (targets to weave into the narrative).
+   **All three optional-degrade:** if a tool is not in the tool list, or returns an error or
+   an empty/`has_*: false` result, fall back silently (build fresh from the contract, contract
+   default theming, no KPI commentary) — NEVER hard-fail the report over a missing tool.
 
 ---
 
@@ -188,7 +209,133 @@ Reference creative playbook data:
 
 ---
 
-## Step 5 — Save Report Files
+## Step 5A — Primary: HTML Report → Platform Review Queue
+
+The HTML build has a fixed order: (1) template → (2) branding → (3) KPIs → (4) build per the
+contract → (5) submit. Steps 1–3 each call one platform tool and each degrades gracefully if
+the tool is missing/errors/empty. Shop must already be resolved (`set_active_shop`, Pre-flight).
+
+### 5A.1 — `get_report_template` FIRST (structure continuity)
+
+Call `get_report_template(shop_slug="<slug>")`.
+
+- **`has_template: false`** (or tool absent / error) → build FRESH from `REPORT-CONTRACT.md`
+  using the section order in Steps 3–4. Skip the rest of this substep.
+- **`has_template: true`** → REUSE the returned skeleton. The result carries `structure`,
+  `edit_journal`, and `branding`:
+  - **Match `structure.slides`** exactly: it is an array of `{index, data_slide, headings,
+    block_types}`. Produce the SAME number of slides in the SAME order, with the same section
+    headings and the same kinds of blocks (`block_types`) per slide — only swap in this
+    period's data. Keep the same components and tone; do not add or drop slides unless the new
+    period genuinely has no data for one (then condense, don't reshuffle). `structure.slide_count`
+    is your target count.
+  - **Treat `edit_journal` as STANDING CORRECTIONS.** Each entry is `{version_number,
+    edited_by, edit_summary, created_at, text_changes:[{old, new}]}`. For every
+    `text_changes[]` pair, the agency deliberately replaced `old` with `new` (e.g. renamed a
+    metric label, corrected a claim, changed wording). Carry the `new` text forward and NEVER
+    revert to `old`. Also honor the intent described in `edit_summary`.
+  - Use `title`, `period_label`, and `status` for continuity of naming/framing. The template's
+    own `branding` block is what shipped last time; the fresh values from 5A.2 take precedence
+    if they differ.
+
+### 5A.2 — `get_report_branding` (aesthetics + `:root` injection)
+
+Call `get_report_branding(shop_slug="<slug>")`. This is HOW the eight `--r-*` variables get
+their values — do NOT invent colors.
+
+- **Inject `css_vars` VERBATIM into `:root`.** The tool returns
+  `css_vars: {"--r-bg", "--r-panel", "--r-accent", "--r-accent-2", "--r-text",
+  "--r-text-muted", "--r-font-heading", "--r-font-body"}`. Copy each key/value straight into
+  the `<style>` block's `:root`. Every color and font in the document (including inside inline
+  SVG) MUST reference only these `--r-*` vars, per `REPORT-CONTRACT.md`.
+- **Follow `design_md`** for layout, tone-of-voice, and component rules — it is the agency's
+  design system (aesthetic direction, spacing, chart style). Let it govern how slides look and
+  read, within the contract's mechanics.
+- **Logos + favicon:** use `assets.logo_light_url` / `assets.logo_dark_url` for the cover and
+  closing slides (pick the one that reads on the report background), and `assets.favicon_url`
+  where applicable. These are already-hosted URLs the platform resolves — the contract's
+  "no external URL" rule is enforced server-side on ingest for OTHER resources; use the
+  branding-provided asset URLs as given (the platform re-hosts/signs them).
+- **Fonts:** if `assets.font_assets:[{family, weight, style, url}]` is present, the platform
+  serves those font files — you still reference them only through `--r-font-heading` /
+  `--r-font-body`. If absent, the `css_vars` font stacks already carry the fallback.
+- Also available for context: `agency.display_name`, `preset.key` / `preset.name`,
+  `tokens.{mode,colors,fonts}`. If the tool is absent/errors → use tasteful contract defaults.
+
+### 5A.3 — `get_kpi` (targets woven into the narrative)
+
+Call `get_kpi(shop_slug="<slug>", period="<YYYY or YYYY-MM matching the report>", platform="blended")`
+(call again per platform — `meta`/`google`/`tiktok`/`linkedin`/`ga4` — when a scorecard slide
+needs platform-specific targets).
+
+- **`has_targets: false`** (or tool absent / error) → omit target commentary gracefully; the
+  report still stands on its own numbers. Skip the rest of this substep.
+- **`has_targets: true`** → weave the returned `ai_summary` (a compiled natural-language block)
+  and specific `targets[]` into the executive summary, the performance overview, and any
+  KPI/scorecard slides. Each target is `{metric_key, metric_label, platform, period_type,
+  period_start, target_value, target_type, unit, direction, currency, notes}`:
+  - Quote the comparison concretely, e.g. "CPA €41 vs €25 Meta target — 64% over; blended
+    ROAS 3.1x vs 3.5x goal." Use `metric_label`, `currency`/`unit`, and `platform`.
+  - **Respect `direction`** when judging good/bad: `lower_better` (CPA, CPC, CPM) means BELOW
+    target is good; `higher_better` (ROAS, revenue) means ABOVE target is good. Do not praise a
+    number that is on the wrong side of its target.
+  - Use `target_type` (`target`/`cap`/`floor`) and `notes` (agency-quotable context) to frame
+    the comparison. `metric_definitions[]` gives AI-legible metric descriptions if you need
+    them; `resolved_periods` tells you which concrete dates the period expanded to.
+
+### 5A.4 — Build the HTML
+
+Build a single self-contained HTML document **strictly per `templates/REPORT-CONTRACT.md`**
+(do not improvise on structure, theming variables, interactivity attributes, print rules, or
+size — the contract is authoritative and the server strips anything non-compliant). Content,
+tone, and section order follow `templates/REPORT-DESIGN-GUIDE.md`, Steps 3–4 above, the reused
+template skeleton (5A.1), the branding `design_md` (5A.2), and the KPI narrative (5A.3):
+cover slide (verdict on it), executive summary, performance overview table, monthly extras,
+what worked / what needs improvement, recommendations, attribution note, closing slide.
+Put methodology detail and extended tables in `data-expandable` deep-dive blocks.
+
+Pull the performance numbers via the existing namespaced MCP tools (Step 1) — unchanged.
+
+Run the contract's pre-submit checklist AND the Step 6 quality checklist before submitting.
+
+### Submit
+
+Call the `create_report` MCP tool:
+
+```
+create_report(
+  shop_slug="<slug>",
+  title="<Client Name> — <Monthly|Weekly> Report <Period>",
+  period_type="weekly" | "monthly" | "custom",
+  period_start="YYYY-MM-DD",
+  period_end="YYYY-MM-DD",
+  html="<the full document>"
+)
+```
+
+### Report back to the user
+
+Always tell the user:
+1. The **report ID** returned by the tool
+2. Status: **pending_review** — "a team member must approve it in the AdUp dashboard before the client sees it"
+3. Any **sanitizer warnings** returned by the tool — quote them **verbatim**
+
+### Sanitizer warnings — fix and resubmit
+
+There is no tool to update an existing report version in this phase (edits happen in the
+dashboard). So if the sanitizer warnings indicate content was stripped or altered (removed
+script/external resource/attribute, oversize image, etc.):
+1. Fix the HTML so it is fully contract-compliant
+2. Call `create_report` again with the corrected HTML
+3. Tell the user explicitly that this created a **second (duplicate) report** in the review
+   queue and that the reviewer should approve the newest one and discard the first
+
+If the warnings are informational only (nothing stripped that affects the rendered report),
+just surface them — do not resubmit.
+
+---
+
+## Step 5B — Legacy PPTX flow (only when the user explicitly asks for PPTX)
 
 ### File Naming Convention
 ```
@@ -234,7 +381,7 @@ Monthly: {client-slug}_monthly_{YYYY-MM-01}.md   + .pptx
 
 ---
 
-## Step 6 — Quality Checklist (Run Before Saving)
+## Step 6 — Quality Checklist (Run Before Submitting/Saving)
 
 Before finalizing, verify:
 
@@ -251,6 +398,17 @@ Before finalizing, verify:
 - [ ] No untranslated jargon (CPA → cost per customer, etc.)
 - [ ] Learning phase entities flagged but not judged
 - [ ] Performance table has bold blended/total row
+
+HTML path (5A) additionally:
+- [ ] `get_report_template` called first; if `has_template:true`, slide count/order/headings match `structure.slides` and every `edit_journal[].text_changes` correction is carried forward (never reverted)
+- [ ] `get_report_branding` `css_vars` injected verbatim into `:root`; no invented colors; `design_md` followed; logos from `assets.logo_light_url`/`logo_dark_url`
+- [ ] `get_kpi` targets woven in respecting each target's `direction`; commentary omitted gracefully when `has_targets:false`
+- [ ] Missing/erroring tool degraded silently (fresh build / contract defaults / no KPI commentary) — report never hard-failed
+- [ ] `templates/REPORT-CONTRACT.md` pre-submit checklist passes (no script, `--r-*` vars, slide structure, print rules, size)
+- [ ] `create_report` called; report ID + pending_review status + verbatim sanitizer warnings relayed to the user
+- [ ] If content was stripped: regenerated compliant HTML, resubmitted, duplicate noted to the user
+
+Legacy PPTX path (5B) additionally:
 - [ ] File saved with correct naming convention
 - [ ] PPTX generated with correct slide structure
 - [ ] Finder opened to report folder
@@ -269,12 +427,21 @@ Before finalizing, verify:
 
 5. **Attribution note is mandatory.** Every report that combines platform and GA4 data must include it. No exceptions.
 
-6. **Follow the sample reports.** Reference `~/Desktop/ADUP-Reports/templates/weekly-report-sample.md` and `~/Desktop/ADUP-Reports/templates/monthly-report-sample.md` for the quality bar. Match their depth, tone, and structure.
+6. **Follow the sample reports.** Reference the plugin's `templates/weekly-report-sample.md` and `templates/monthly-report-sample.md` for the quality bar. Match their depth, tone, and structure.
 
 7. **Google Ads micros.** ALWAYS divide by 1,000,000. Displaying raw micros is a critical error.
 
 8. **Frame positively.** "Opportunity to improve" not "failing." Frame challenges as opportunities, not failures.
 
-9. **Save and open.** Always save to `~/Desktop/ADUP-Reports/`. Always generate PPTX. Always open Finder.
+9. **HTML is the default delivery.** Submit via `create_report` and relay report ID, pending_review status, and sanitizer warnings verbatim. PPTX/markdown-to-disk only when the user explicitly asks for a PPTX/PowerPoint/deck file (Step 5B) — then save to `~/Desktop/ADUP-Reports/`, generate the PPTX, and open Finder.
 
-10. **Monthly = strategic, weekly = tactical.** Monthly reports go deeper: funnel, utilization, channel mix, creative health, strategic recommendations. Weekly stays focused on this week's performance and next week's actions.
+10. **The contract is authoritative for HTML.** Never emit `<script>`, external resources, or your own interactivity JS; theme exclusively through the `--r-*` variables. If the sanitizer reports stripped content, regenerate compliant HTML and resubmit as a new report (there is no version-update tool yet), telling the user about the duplicate.
+
+11. **Continuity, branding, KPIs (HTML path).** Call `get_report_template` → `get_report_branding`
+    → `get_kpi` before building (Step 5A). Reuse the template's `structure.slides` skeleton and
+    carry every `edit_journal[].text_changes` correction forward; inject branding `css_vars`
+    verbatim and follow `design_md`; weave `get_kpi` `ai_summary`/`targets` in, respecting each
+    target's `direction`. All three optional-degrade — a missing or erroring tool falls back
+    (fresh build, contract defaults, no KPI commentary) and NEVER hard-fails the report.
+
+12. **Monthly = strategic, weekly = tactical.** Monthly reports go deeper: funnel, utilization, channel mix, creative health, strategic recommendations. Weekly stays focused on this week's performance and next week's actions.
