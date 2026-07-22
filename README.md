@@ -61,6 +61,14 @@ Get your API key from [tara.adup.io/settings/api](https://tara.adup.io/settings/
 | LinkedIn Optimize | `/adup:linkedin-optimize` | Propose LinkedIn budget, status & creative changes |
 | TikTok Optimize | `/adup:tiktok-optimize` | Propose TikTok budget & status changes |
 
+### Creative Workspace (bulk launching — all proposals require approval, ads land PAUSED)
+| Skill | Command | Description |
+|-------|---------|-------------|
+| Creative Workspace | `/adup:creative-workspace` | Init a local creative workspace (folders + markdown) or run doctor checks |
+| Launch | `/adup:launch` | Validate, upload, and propose ads in bulk per ad × platform × language |
+| Status | `/adup:status` | Sync approval statuses back into the workspace; `--csv` / `--sheet` exports |
+| Creative Import | `/adup:creative-import` | Import a winning ad for cross-platform relaunch, or a spreadsheet copy matrix |
+
 ### Reporting
 | Skill | Command | Description |
 |-------|---------|-------------|

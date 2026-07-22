@@ -1,0 +1,115 @@
+{
+  "_meta": {
+    "verified_at": "2026-07-03",
+    "note": "Best-effort snapshot of publicly documented platform specs. Platforms change these regularly — re-verify against the official spec pages before trusting a borderline validation result. 'soft' text limits = display truncation guidance (warn); 'hard' = API/review rejection limits (error). min_px is [width, height] for the canonical orientation of each ratio. max_mb applies per file.",
+    "ratio_tokens": {
+      "1x1": 1.0,
+      "4x5": 0.8,
+      "9x16": 0.5625,
+      "16x9": 1.7778,
+      "191x100": 1.91
+    },
+    "ratio_tolerance": 0.02
+  },
+  "facebook": {
+    "creation_supported": true,
+    "notes": "Meta (Facebook + Instagram). Multi-placement: supply 1x1 + 4x5 + 9x16 of the same concept for best coverage. Carousel: 2-10 cards, 1x1 recommended.",
+    "placements": {
+      "feed": {
+        "ratios": ["1x1", "4x5", "16x9", "191x100"],
+        "min_px": { "1x1": [1080, 1080], "4x5": [1080, 1350], "16x9": [1200, 675], "191x100": [1200, 628] },
+        "image": { "max_mb": 30, "mime": ["image/jpeg", "image/png"] },
+        "video": { "max_mb": 4096, "duration_s": [1, 14400], "mime": ["video/mp4", "video/quicktime"] }
+      },
+      "stories_reels": {
+        "ratios": ["9x16"],
+        "min_px": { "9x16": [1080, 1920] },
+        "image": { "max_mb": 30, "mime": ["image/jpeg", "image/png"] },
+        "video": { "max_mb": 4096, "duration_s": [1, 90], "mime": ["video/mp4", "video/quicktime"] }
+      },
+      "carousel_card": {
+        "ratios": ["1x1"],
+        "min_px": { "1x1": [1080, 1080] },
+        "cards": { "min": 2, "max": 10 },
+        "image": { "max_mb": 30, "mime": ["image/jpeg", "image/png"] },
+        "video": { "max_mb": 4096, "duration_s": [1, 240], "mime": ["video/mp4", "video/quicktime"] }
+      }
+    },
+    "text": {
+      "primary": { "soft": 125, "hard": 2200 },
+      "headline": { "soft": 40, "hard": 255 },
+      "description": { "soft": 30, "hard": 255 }
+    }
+  },
+  "tiktok": {
+    "creation_supported": true,
+    "notes": "In-feed video is the primary unit. 9x16 full-screen strongly recommended. TikTok status values are ENABLE/DISABLE (executor forces DISABLE = paused). Ad text: no emoji, no '#' or '@' at start; counts are characters (CJK counts double against the limit).",
+    "placements": {
+      "in_feed": {
+        "ratios": ["9x16", "1x1", "16x9"],
+        "min_px": { "9x16": [540, 960], "1x1": [640, 640], "16x9": [960, 540] },
+        "video": { "max_mb": 500, "duration_s": [5, 600], "mime": ["video/mp4", "video/quicktime", "video/mpeg", "video/avi"] },
+        "image": { "max_mb": 100, "mime": ["image/jpeg", "image/png"] }
+      }
+    },
+    "text": {
+      "primary": { "soft": 80, "hard": 100 },
+      "headline": null,
+      "description": null
+    }
+  },
+  "google": {
+    "creation_supported": true,
+    "notes": "Creation via ADUP supported for RSA TEXT ads only (propose_google_create_rsa) — no media assets in v1, so creative groups are never uploaded for google. RSA needs 3-15 headlines (max 30 chars each) and 2-4 descriptions (max 90 chars each). The responsive_display_image placement below remains validation reference only. Text limits are hard API limits per asset.",
+    "placements": {
+      "responsive_display_image": {
+        "ratios": ["191x100", "1x1"],
+        "min_px": { "191x100": [600, 314], "1x1": [300, 300] },
+        "image": { "max_mb": 5.12, "mime": ["image/jpeg", "image/png", "image/gif"] }
+      }
+    },
+    "text": {
+      "primary": { "soft": 60, "hard": 90 },
+      "headline": { "soft": 30, "hard": 30 },
+      "description": { "soft": 90, "hard": 90 }
+    }
+  },
+  "linkedin": {
+    "creation_supported": true,
+    "notes": "Creation via ADUP supported for Single Image and Video ads (propose_linkedin_create_ad with asset_id + intro_text/headline). Intro text truncates around 150 chars on most surfaces.",
+    "placements": {
+      "single_image": {
+        "ratios": ["191x100", "1x1", "4x5"],
+        "min_px": { "191x100": [1200, 628], "1x1": [1200, 1200], "4x5": [1080, 1350] },
+        "image": { "max_mb": 5, "mime": ["image/jpeg", "image/png"] }
+      },
+      "video": {
+        "ratios": ["16x9", "1x1", "9x16"],
+        "min_px": { "16x9": [640, 360], "1x1": [360, 360], "9x16": [360, 640] },
+        "video": { "max_mb": 500, "duration_s": [3, 1800], "mime": ["video/mp4"] }
+      }
+    },
+    "text": {
+      "primary": { "soft": 150, "hard": 600 },
+      "headline": { "soft": 70, "hard": 200 },
+      "description": { "soft": 100, "hard": 300 }
+    }
+  },
+  "snapchat": {
+    "creation_supported": false,
+    "notes": "Creation via ADUP not yet supported — validation reference only (Single Image/Video 'Top Snap'). 1080x1920 (9:16) is effectively required. Headline doubles as the primary text surface.",
+    "placements": {
+      "top_snap": {
+        "ratios": ["9x16"],
+        "min_px": { "9x16": [1080, 1920] },
+        "image": { "max_mb": 5, "mime": ["image/jpeg", "image/png"] },
+        "video": { "max_mb": 1024, "duration_s": [3, 180], "mime": ["video/mp4", "video/quicktime"] }
+      }
+    },
+    "text": {
+      "primary": { "soft": 34, "hard": 34 },
+      "headline": { "soft": 34, "hard": 34 },
+      "description": null
+    }
+  }
+}
