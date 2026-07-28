@@ -6,8 +6,9 @@ description: Analyse Facebook and Instagram ad performance using Meta-native ana
 # Facebook Ads Analysis
 
 ## Pre-flight
-- Confirm shop context for agency accounts (use `set_active_shop` if not already set)
-- **Always include `shop_slug` in every Facebook Ads tool call** — required for agency accounts
+- Resolve shop context in three steps: (1) `list_shops` to see brands + `connected_platforms`, (2) `set_active_shop(shop_slug="<slug>")` — **required for tool discovery**: an agency key only sees the 6 virtual tools until a shop is active, (3) pass `shop_slug="<slug>"` on every data call
+- **Always include `shop_slug` in every Facebook Ads tool call** — the ambient active shop is per-API-key and races across concurrent runs
+- All Facebook Ads tools are namespaced `facebook__<tool>` on the aggregated `adup` connector
 - Default to last 30 days if no date range specified — state the assumption
 - Facebook monetary values are in account currency (not micros — no conversion needed)
 - Cross-reference your recommendations with performance data trends — frame suggestions as testable hypotheses
@@ -81,7 +82,8 @@ Meta metrics are modelled estimates, not exact counts.
 
 **Campaign overview:**
 ```
-get_campaign_performance_metrics(
+facebook__get_campaign_performance_metrics(
+  shop_slug="<slug>",
   time_range={"since": "YYYY-MM-DD", "until": "YYYY-MM-DD"}
 )
 ```
@@ -89,7 +91,8 @@ Returns: spend, impressions, link clicks, CTR, CPC, purchases, ROAS per campaign
 
 **Full metrics with conversions:**
 ```
-get_ad_insights(
+facebook__get_ad_insights(
+  shop_slug="<slug>",
   time_range={"since": "YYYY-MM-DD", "until": "YYYY-MM-DD"},
   campaign_id="<id_if_known>"
 )
@@ -97,7 +100,8 @@ get_ad_insights(
 
 **Conversion funnel (ViewContent → Purchase):**
 ```
-analyze_standard_events_funnel(
+facebook__analyze_standard_events_funnel(
+  shop_slug="<slug>",
   time_range={"since": "YYYY-MM-DD", "until": "YYYY-MM-DD"}
 )
 ```
@@ -105,14 +109,15 @@ Shows drop-off rates at each funnel stage.
 
 **Video performance:**
 ```
-analyze_video_performance(
+facebook__analyze_video_performance(
+  shop_slug="<slug>",
   time_range={"since": "YYYY-MM-DD", "until": "YYYY-MM-DD"}
 )
 ```
 
 **Ad set details (learning phase + budget check):**
 ```
-get_adsets(campaign_id="<id>")
+facebook__get_adsets(shop_slug="<slug>", campaign_id="<id>")
 ```
 Use this to check status, daily budget, and targeting for each ad set.
 
@@ -125,7 +130,7 @@ CBO campaign? → Evaluate at campaign level.
 Non-CBO? → Evaluate at ad set level.
 
 ### Step 2 — Check learning phase status
-Pull ad sets with `get_adsets`. Flag any in Learning/Learning Limited before proceeding. Exclude from performance judgments.
+Pull ad sets with `facebook__get_adsets(shop_slug="<slug>", ...)`. Flag any in Learning/Learning Limited before proceeding. Exclude from performance judgments.
 
 ### Step 3 — Evaluate aggregate performance
 Pull campaign-level metrics first. Get total spend, ROAS, purchase volume, link click CTR. Form a view of overall health before drilling down.

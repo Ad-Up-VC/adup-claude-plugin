@@ -6,20 +6,22 @@ description: Propose Google Ads optimizations through the action middleware. Cov
 # Google Ads Optimization
 
 ## Pre-flight
-- Confirm shop context for agency accounts (use `set_active_shop` if not already set)
+- Resolve shop context in all three steps: (1) `list_shops` to see the brands and their connected platforms, (2) `set_active_shop(shop_slug="<slug>")` — **required for tool discovery**, an agency key sees only the six virtual tools until a shop is active, (3) pass `shop_slug="<slug>"` explicitly on every data/action call below
 - Default lookback: 14 days. State the assumption if user doesn't specify
-- Pull campaign and ad-level data from Google Ads MCP tools
+- Pull campaign and ad-level data from the `google_ads__*` MCP tools (the prefix is `google_ads__`, never `google__`)
 - All Google Ads monetary values are in **micros** — divide by 1,000,000 for display
 
 ---
 
 ## Step 1 — Analyse Performance
 
-Pull performance data using Google Ads read tools:
-- `get_google_ads_campaign_performance(start_date="...", end_date="...", shop_slug="<slug>")` for campaign-level metrics
-- `get_google_ads_ad_performance(start_date="...", end_date="...", shop_slug="<slug>")` for ad-level metrics
-- `get_google_ads_ad_creatives(shop_slug="<slug>")` for RSA asset performance ratings (LOW, GOOD, BEST)
-- `search_google_ads_data(user_prompt="...", shop_slug="<slug>")` for quality score and impression share queries
+Pull performance data using the namespaced Google Ads read tools:
+- `google_ads__get_google_ads_campaign_performance(start_date="...", end_date="...", shop_slug="<slug>")` for campaign-level metrics
+- `google_ads__get_google_ads_ad_performance(start_date="...", end_date="...", shop_slug="<slug>")` for ad-level metrics
+- `google_ads__get_google_ads_ad_creatives(shop_slug="<slug>")` for RSA asset performance ratings (LOW, GOOD, BEST)
+- `google_ads__execute_google_ads_gaql_query(query="<GAQL>", shop_slug="<slug>")` for quality score and impression share queries — this takes a **raw GAQL string, not a natural-language prompt**:
+  - Quality Score: `SELECT campaign.name, ad_group.name, ad_group_criterion.keyword.text, ad_group_criterion.quality_info.quality_score, metrics.cost_micros FROM keyword_view WHERE segments.date DURING LAST_14_DAYS AND ad_group_criterion.quality_info.quality_score < 5 ORDER BY metrics.cost_micros DESC`
+  - Impression share: `SELECT campaign.name, metrics.search_impression_share, metrics.search_budget_lost_impression_share, metrics.search_rank_lost_impression_share FROM campaign WHERE segments.date DURING LAST_14_DAYS AND campaign.status = 'ENABLED' ORDER BY metrics.search_impression_share ASC`
 
 ### Key metrics per campaign:
 | Metric | Source |
@@ -55,21 +57,23 @@ Pull performance data using Google Ads read tools:
 
 ## Step 3 — Propose Changes
 
+The `propose_*` write tools exist on several platforms, so a bare name is ambiguous — always use the `google_ads__` ones here, with an explicit `shop_slug`.
+
 ### Budget Changes
-Call `propose_budget_change` (Google Ads) for each candidate:
+Call `google_ads__propose_budget_change(shop_slug="<slug>", ...)` for each candidate:
 - **Winners:** Propose 15-20% budget increase
 - **Losers:** Propose 15-25% budget decrease
 - Reasoning must cite: ROAS, CPA, conversion volume, WoW trends
 - Budget values should be in **currency units** (not micros) — the tool handles conversion
 
 ### Status Changes
-Call `propose_status_change` (Google Ads) for each candidate:
+Call `google_ads__propose_status_change(shop_slug="<slug>", ...)` for each candidate:
 - Provide `entity_type` (campaign, adgroup, ad), `entity_id`, `new_status` (ENABLED/PAUSED)
 - Reasoning: cite specific performance data justifying the change
 - Note: Google Ads uses ENABLED/PAUSED (not ACTIVE/PAUSED)
 
 ### RSA Updates
-Call `propose_rsa_update` (Google Ads) for underperforming RSAs:
+Call `google_ads__propose_rsa_update(shop_slug="<slug>", ...)` for underperforming RSAs:
 - Replace LOW-rated headlines with new variations inspired by BEST-rated ones
 - Keep BEST-rated headlines unchanged
 - Propose max 3 headline replacements per ad at a time

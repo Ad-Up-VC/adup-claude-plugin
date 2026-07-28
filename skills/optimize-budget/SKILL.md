@@ -6,7 +6,7 @@ description: Analyse campaign performance to identify budget reallocation opport
 # Budget Optimization
 
 ## Pre-flight
-- Confirm shop context for agency accounts (use `set_active_shop` if not already set)
+- Resolve shop context in all three steps: (1) `list_shops` to see the brands and their connected platforms, (2) `set_active_shop(shop_slug="<slug>")` — **required for tool discovery**, an agency key sees only the six virtual tools until a shop is active, (3) pass `shop_slug="<slug>"` explicitly on every data/action call below
 - Default lookback: last 14 days. State the assumption
 - Pull GA4 data alongside platform data when available for blended ROAS
 
@@ -14,9 +14,10 @@ description: Analyse campaign performance to identify budget reallocation opport
 
 ## Step 1 — Analyse Performance
 
-Pull campaign-level performance data using platform read tools:
-- Facebook: `get_campaign_performance_metrics(time_range={...}, shop_slug="<slug>")` for campaign-level spend, clicks, CTR, CPC, purchases, ROAS
-- Google: `get_google_ads_campaign_performance(start_date="...", end_date="...", shop_slug="<slug>")` — remember to divide micros by 1,000,000
+Pull campaign-level performance data using the namespaced platform read tools:
+- Facebook: `facebook__get_campaign_performance_metrics(time_range={...}, shop_slug="<slug>")` for campaign-level spend, clicks, CTR, CPC, purchases, ROAS
+- Google: `google_ads__get_google_ads_campaign_performance(start_date="...", end_date="...", shop_slug="<slug>")` — remember to divide micros by 1,000,000
+- TikTok: `tiktok__*` report tools with `shop_slug="<slug>"`; LinkedIn: `linkedin__*` campaign tools with `shop_slug="<slug>"`
 - Compare last 7 days vs previous 7 days for trend
 
 ### Key metrics per campaign:
@@ -53,15 +54,18 @@ Pull campaign-level performance data using platform read tools:
 
 ## Step 3 — Propose Reallocations
 
+`propose_budget_change` and `propose_status_change` exist on **several** platforms, so the bare name is ambiguous — always call the platform-specific one that owns the campaign, with an explicit `shop_slug`:
+`facebook__propose_budget_change` / `google_ads__propose_budget_change` / `tiktok__propose_budget_change` / `linkedin__propose_budget_change`, and likewise `facebook__propose_status_change` / `google_ads__propose_status_change` / `tiktok__propose_status_change` / `linkedin__propose_status_change`.
+
 ### For each Winner:
-- Call `propose_budget_change` to increase budget
+- Call `<platform>__propose_budget_change(shop_slug="<slug>", ...)` to increase budget
 - Suggest 15-20% increase (respect scaling best practices)
 - Reasoning: cite ROAS, CPA, trend data, conversion volume
 
 ### For each Loser:
-- Call `propose_budget_change` to decrease budget
+- Call `<platform>__propose_budget_change(shop_slug="<slug>", ...)` to decrease budget
 - Suggest 15-25% decrease
-- If sustained poor performance (7+ days, < 50% of ROAS target): consider proposing pause via `propose_status_change`
+- If sustained poor performance (7+ days, < 50% of ROAS target): consider proposing pause via `<platform>__propose_status_change(shop_slug="<slug>", ...)`
 
 ### Budget-neutral approach:
 - When possible, frame as reallocation: "Move $50/day from Campaign A (1.2x ROAS) to Campaign B (3.8x ROAS)"

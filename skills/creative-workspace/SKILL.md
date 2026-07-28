@@ -53,7 +53,7 @@ acme-nl/                              ← workspace root = ONE shop (agency: sib
 
 ### Step 1 — Pick the shop
 
-Call `list_shops` on the adup connector. Show the list and ask which client this workspace is for (skip the question for solo accounts with one shop). Then call `set_active_shop(shop_slug="<slug>")`.
+Call `list_shops` on the adup connector. Show the list and ask which client this workspace is for (skip the question for solo accounts with one shop). Then call `set_active_shop(shop_slug="<slug>")` — this is **required for tool discovery**, not just routing: until a shop is active, an agency key sees only the six virtual tools and no `facebook__*` / `tiktok__*` tools at all. Every platform call afterwards still passes `shop_slug="<slug>"` explicitly (the ambient active shop is per API key and races with concurrent runs).
 
 ### Step 2 — Pick the folder
 
@@ -220,7 +220,7 @@ Read-only structural check. **Never modify any file content — report findings 
 Run these checks from the workspace root:
 
 1. **Workspace integrity** — `.adup/workspace.json` exists, parses, has `shop_slug` and `defaults`. `state.json` exists and parses.
-2. **Shop reachable** — `shop_slug` appears in `list_shops` output (warn if not: key may lack access).
+2. **Shop reachable** — `shop_slug` appears in `list_shops` output (warn if not: key may lack access). Call `set_active_shop(shop_slug="<slug>")` before any platform tool check below, and pass `shop_slug="<slug>"` on those calls.
 3. **Orphan assets** — files under `assets/` whose concept group is not referenced by any `ad.md` `creative:` field. (Informational — orphans cost nothing until uploaded.)
 4. **Missing creative groups** — every `ad.md` `creative:` value resolves to ≥1 file in `assets/` (or is an https/Drive link). An ad with `status: ready|uploaded|proposed` and no files = error.
 5. **Stale state entries** — `state.json` assets whose checksum matches no current local file (renamed is fine — keyed by checksum, so only report when the bytes are gone); `state.json` ads whose folder path no longer exists.

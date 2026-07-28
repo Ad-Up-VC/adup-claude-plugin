@@ -19,7 +19,7 @@ There are two delivery paths. Choose ONE up front:
 
 ## Pre-flight
 
-1. Confirm shop context (use `set_active_shop` if not already set, include `shop_slug` in every call)
+1. Resolve shop context in all three steps: (1) `list_shops` to see the brands and their connected platforms, (2) `set_active_shop(shop_slug="<slug>")` — **required for tool discovery**, an agency key sees only the six virtual tools until a shop is active, (3) pass `shop_slug="<slug>"` explicitly on every data/action call
 2. Determine report type and period:
    - **Weekly:** last 7 days vs previous 7 days
    - **Monthly:** last calendar month vs previous calendar month
@@ -41,43 +41,44 @@ There are two delivery paths. Choose ONE up front:
 
 ## Step 1 — Pull Performance Data (All Connected Platforms)
 
-Pull data from EVERY connected platform. Always include `shop_slug` in every call.
+Pull data from EVERY connected platform. Every data tool is **namespaced `platform__tool`** and takes an explicit `shop_slug` on every call. (Only the six virtual tools — `list_shops`, `set_active_shop`, `create_report`, `get_kpi`, `get_report_template`, `get_report_branding` — are unprefixed.)
 
 ### Facebook & Instagram Ads
 ```
-get_campaign_performance_metrics(time_range={...}, shop_slug="<slug>")
-get_ad_insights(time_range={...}, shop_slug="<slug>", metric_categories=["performance", "conversion", "standard_events"])
+facebook__get_campaign_performance_metrics(time_range={...}, shop_slug="<slug>")
+facebook__get_ad_insights(time_range={...}, shop_slug="<slug>", metric_categories=["performance", "conversion", "standard_events"])
 ```
 - Campaign-level: spend, impressions, link clicks, CTR, purchases, ROAS, frequency
 - Pull both current and comparison period for WoW/MoM delta
-- Check for learning phase via `get_adsets` — flag but don't judge
+- Check for learning phase via `facebook__get_adsets(shop_slug="<slug>")` — flag but don't judge
 
 ### Google Ads
 ```
-get_google_ads_account_currency(shop_slug="<slug>")
-get_google_ads_campaign_performance(start_date="...", end_date="...", shop_slug="<slug>")
+google_ads__get_google_ads_account_currency(shop_slug="<slug>")
+google_ads__get_google_ads_campaign_performance(start_date="...", end_date="...", shop_slug="<slug>")
 ```
 - **CRITICAL: Divide ALL _micros values by 1,000,000 before displaying**
 - Pull for both current and comparison period
 - Include campaign type context (Search, Shopping, PMax, Display)
 
 ### TikTok Ads (if connected)
-- TikTok report tools not yet available via MCP — note in report that TikTok data is pending integration
-- When available, include hook rate (3s views / impressions) and video completion rates (P25/P50/P75/P100)
+- Use the `tiktok__*` report tools with `shop_slug="<slug>"` — TikTok reporting **is** available via MCP
+- Include hook rate (3s views / impressions) and video completion rates (P25/P50/P75/P100)
 
 ### LinkedIn Ads (if connected)
+- Use the `linkedin__*` campaign tools with `shop_slug="<slug>"` (e.g. `linkedin__get_linkedin_campaigns(shop_slug="<slug>")`) — LinkedIn **is** available via MCP
 - Campaign analytics for both periods
 - Focus on CPL, lead quality, engagement rate
 - Benchmark CPL against $50-$150 B2B range
 
 ### GA4 — SOURCE OF TRUTH for revenue
 ```
-get_ecommerce_performance(user_prompt="Revenue by traffic source", time_range={...}, format_type="table", shop_slug="<slug>")
-get_user_acquisition(user_prompt="Sessions and revenue by channel", time_range={...}, shop_slug="<slug>")
+ga4__get_ecommerce_performance(user_prompt="Revenue by traffic source", time_range={...}, format_type="table", shop_slug="<slug>")
+ga4__get_user_acquisition(user_prompt="Sessions and revenue by channel", time_range={...}, shop_slug="<slug>")
 ```
 - For monthly reports, also pull:
 ```
-get_conversion_funnel(user_prompt="Purchase funnel", time_range={...}, funnel_steps=["view_item","add_to_cart","begin_checkout","add_payment_info","purchase"], shop_slug="<slug>")
+ga4__get_conversion_funnel(user_prompt="Purchase funnel", time_range={...}, funnel_steps=["view_item","add_to_cart","begin_checkout","add_payment_info","purchase"], shop_slug="<slug>")
 ```
 
 ---
@@ -213,7 +214,8 @@ Reference creative playbook data:
 
 The HTML build has a fixed order: (1) template → (2) branding → (3) KPIs → (4) build per the
 contract → (5) submit. Steps 1–3 each call one platform tool and each degrades gracefully if
-the tool is missing/errors/empty. Shop must already be resolved (`set_active_shop`, Pre-flight).
+the tool is missing/errors/empty. Shop must already be resolved (Pre-flight step 1: `list_shops` →
+`set_active_shop` → explicit `shop_slug` per call — the calls below all pass `shop_slug`).
 
 ### 5A.1 — `get_report_template` FIRST (structure continuity)
 

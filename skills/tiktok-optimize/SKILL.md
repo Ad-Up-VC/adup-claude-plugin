@@ -6,19 +6,16 @@ description: Propose TikTok Ads optimizations through the action middleware. Cov
 # TikTok Ads Optimization
 
 ## Pre-flight
-- Confirm shop context for agency accounts (use `set_active_shop` if not already set)
+- Resolve shop context in all three steps: (1) `list_shops` to see the brands and their connected platforms, (2) `set_active_shop(shop_slug="<slug>")` — **required for tool discovery**, an agency key sees only the six virtual tools until a shop is active, (3) pass `shop_slug="<slug>"` explicitly on every data/action call below
 - Default lookback: 14 days. State the assumption if user doesn't specify
-- Pull campaign and ad group data from TikTok Ads MCP tools
+- Pull campaign and ad group data from the `tiktok__*` MCP tools — TikTok reporting **is** available via MCP
 - TikTok is video-first — hook rate and completion rates are critical metrics
 
 ---
 
 ## Step 1 — Analyse Performance
 
-Pull performance data using TikTok Ads read tools:
-- TikTok campaign/ad group/ad report tools are not yet available via MCP
-- When available, use the platform-specific tools with `shop_slug` parameter
-- For now, note that TikTok optimization requires manual data review
+Pull performance data using the namespaced TikTok Ads read tools (`tiktok__*`, e.g. `tiktok__get_tiktok_campaigns(shop_slug="<slug>")` plus the campaign/ad group/ad report tools), always with an explicit `shop_slug`.
 
 ### Key metrics per campaign/ad group:
 | Metric | What it shows |
@@ -64,8 +61,11 @@ TikTok creative fatigue is **faster** than other platforms — typically 7-14 da
 
 ## Step 3 — Propose Changes
 
+The `propose_*` write tools exist on several platforms, so a bare name is ambiguous — always use the `tiktok__` ones here, with an explicit `shop_slug`.
+
 ### Budget Changes
-Call `propose_budget_change` (TikTok Ads) for each candidate:
+Call `tiktok__propose_budget_change` for each candidate:
+- `shop_slug`: `"<slug>"` (always explicit)
 - `entity_type`: "campaign" or "adgroup"
 - `entity_id`: TikTok campaign/ad group ID
 - `new_budget`: in account currency (e.g., 50.0 for $50)
@@ -74,7 +74,8 @@ Call `propose_budget_change` (TikTok Ads) for each candidate:
 - **Losers:** Propose 15-25% budget decrease
 
 ### Status Changes
-Call `propose_status_change` (TikTok Ads) for each candidate:
+Call `tiktok__propose_status_change` for each candidate:
+- `shop_slug`: `"<slug>"` (always explicit)
 - `entity_type`: "campaign", "adgroup", or "ad"
 - `entity_id`: TikTok entity ID
 - `new_status`: "ENABLE" or "DISABLE" (TikTok uses these instead of ACTIVE/PAUSED)

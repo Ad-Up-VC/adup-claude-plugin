@@ -13,28 +13,34 @@ description: Build a unified cross-platform marketing dashboard showing total sp
 - "Compare Facebook vs Google"
 
 ## Pre-flight
-1. Confirm shop context (agency accounts)
-2. Call `list_shops` to check which platforms are connected
-3. Use a consistent date range for ALL calls
-4. Collect all data before formatting output
+1. Call `list_shops` to get brands + `connected_platforms`
+2. Call `set_active_shop(shop_slug="<slug>")` — **required for tool discovery**: an agency key only sees the 6 virtual tools until a shop is active
+3. Pass `shop_slug="<slug>"` on EVERY data call below. If you build this dashboard for more than one brand, pass each brand's own slug per call inside the loop — `set_active_shop` sets ONE ambient shop per API key and concurrent runs race
+4. Use a consistent date range for ALL calls
+5. Collect all data before formatting output
 
 ## Call sequence
+
+All platform tools are namespaced `platform__tool` on the aggregated `adup` connector.
 
 ### 1. Paid platforms (call for each connected platform)
 
 ```
 # Facebook (if connected)
-get_campaign_performance_metrics(time_range={"since": "YYYY-MM-DD", "until": "YYYY-MM-DD"}, shop_slug="<slug>")
+facebook__get_campaign_performance_metrics(time_range={"since": "YYYY-MM-DD", "until": "YYYY-MM-DD"}, shop_slug="<slug>")
 
 # Google Ads (if connected)
-get_google_ads_account_currency(shop_slug="<slug>")
-get_google_ads_campaign_performance(start_date="YYYY-MM-DD", end_date="YYYY-MM-DD", shop_slug="<slug>")
+google_ads__get_google_ads_account_currency(shop_slug="<slug>")
+google_ads__get_google_ads_campaign_performance(start_date="YYYY-MM-DD", end_date="YYYY-MM-DD", shop_slug="<slug>")
+
+# LinkedIn Ads (if connected)
+linkedin__get_ad_analytics(shop_slug="<slug>", ...)
 ```
 
 ### 2. Analytics (if GA4 connected)
 ```
-get_ecommerce_performance(user_prompt="revenue by source", time_range={"since": {"year": YYYY, "month": M, "day": D}, "until": {"year": YYYY, "month": M, "day": D}}, format_type="table", shop_slug="<slug>")
-get_user_acquisition(user_prompt="sessions by channel", time_range={"since": {"year": YYYY, "month": M, "day": D}, "until": {"year": YYYY, "month": M, "day": D}}, shop_slug="<slug>")
+ga4__get_ecommerce_performance(user_prompt="revenue by source", time_range={"since": {"year": YYYY, "month": M, "day": D}, "until": {"year": YYYY, "month": M, "day": D}}, format_type="table", shop_slug="<slug>")
+ga4__get_user_acquisition(user_prompt="sessions by channel", time_range={"since": {"year": YYYY, "month": M, "day": D}, "until": {"year": YYYY, "month": M, "day": D}}, shop_slug="<slug>")
 ```
 
 ### 3. Assemble and cross-reference

@@ -6,7 +6,10 @@ description: Generate a per-client executive briefing for the start of the week.
 # Monday Morning Briefing
 
 ## Pre-flight
-- Confirm shop context — for agencies, iterate through all active shops
+- Call `list_shops` to get every brand + its `connected_platforms`
+- Call `set_active_shop(shop_slug="<slug>")` — **required for tool discovery**: an agency key only sees the 6 virtual tools until a shop is active
+- For agencies, iterate through all active shops. **Inside the loop, pass `shop_slug="<that shop's slug>"` on EVERY data call** — `set_active_shop` sets ONE ambient shop per API key, so a loop relying on the ambient shop reads the wrong client (and concurrent runs clobber each other)
+- All platform tools are namespaced `platform__tool` on the aggregated `adup` connector
 - Period: last 7 days vs previous 7 days
 - Pull data from ALL connected platforms per shop
 
@@ -17,22 +20,22 @@ description: Generate a per-client executive briefing for the start of the week.
 For each active shop, pull performance data from all connected platforms:
 
 ### Facebook Ads
-- `get_campaign_performance_metrics(time_range={...}, shop_slug="<slug>")` for campaign-level metrics
-- `get_ad_insights(time_range={...}, shop_slug="<slug>")` for detailed conversion data
+- `facebook__get_campaign_performance_metrics(time_range={...}, shop_slug="<slug>")` for campaign-level metrics
+- `facebook__get_ad_insights(time_range={...}, shop_slug="<slug>")` for detailed conversion data
 - Compare last 7 days vs previous 7 days
 
 ### Google Ads
-- `get_google_ads_campaign_performance(start_date="...", end_date="...", shop_slug="<slug>")` for all active campaigns
+- `google_ads__get_google_ads_campaign_performance(start_date="...", end_date="...", shop_slug="<slug>")` for all active campaigns
 - Remember: all monetary values in micros — divide by 1,000,000
 
 ### TikTok Ads (if connected)
-- TikTok campaign tools not yet available via MCP — note in briefing
+- TikTok IS available via MCP under the `tiktok__` prefix. The report tool is **ID-scoped** — call `tiktok__get_tiktok_campaigns(shop_slug="<slug>")` first, then `tiktok__get_tiktok_campaign_reports(shop_slug="<slug>", campaign_ids=[...], start_date="<YYYY-MM-DD>", end_date="<YYYY-MM-DD>")` for campaign-level spend, clicks, CTR, and conversions. All three of `campaign_ids`, `start_date`, `end_date` are required — there is no "all campaigns" mode
 
 ### LinkedIn Ads (if connected)
-- LinkedIn tools not yet available via MCP — note in briefing
+- LinkedIn IS available via MCP under the `linkedin__` prefix — use `linkedin__get_ad_analytics(shop_slug="<slug>", ...)` for spend, clicks, CTR, and leads/CPL
 
 ### GA4
-- `get_ecommerce_performance(user_prompt="revenue by source", time_range={...}, shop_slug="<slug>")` for revenue, transactions, conversion rate
+- `ga4__get_ecommerce_performance(user_prompt="revenue by source", time_range={...}, shop_slug="<slug>")` for revenue, transactions, conversion rate
 - Channel attribution to calculate blended ROAS
 
 ---
@@ -73,9 +76,12 @@ Identify the 3 biggest problems with specific data:
 
 ### Recommended Actions
 For each concern, propose a concrete next step:
-- Budget change → call `propose_budget_change` with data-backed reasoning
-- Pause → call `propose_status_change` with performance justification
+- Budget change → call the owning platform's `propose_budget_change` with data-backed reasoning (pass `shop_slug="<slug>"`)
+- Pause → call the owning platform's `propose_status_change` with performance justification (pass `shop_slug="<slug>"`)
 - Creative refresh → flag for user action
+
+Both proposal tools are per-platform middleware tools — namespace every call with the platform the entity lives on: `facebook__`, `google_ads__`, `tiktok__`, or `linkedin__` (e.g. `facebook__propose_budget_change`, `google_ads__propose_status_change`).
+
 
 ---
 
