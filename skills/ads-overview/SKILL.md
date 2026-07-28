@@ -39,9 +39,16 @@ LinkedIn Ads IS available via MCP under the `linkedin__` prefix. Use its analyti
 
 **If TikTok Ads connected:**
 ```
-tiktok__get_tiktok_campaign_reports(shop_slug="<slug>", ...)
+# The report tool is ID-scoped — get campaign IDs first
+tiktok__get_tiktok_campaigns(shop_slug="<slug>")
+tiktok__get_tiktok_campaign_reports(
+  shop_slug="<slug>",
+  campaign_ids=["<id1>", "<id2>", ...],   # required — from the call above
+  start_date="<YYYY-MM-DD>",              # required
+  end_date="<YYYY-MM-DD>"                 # required
+)
 ```
-TikTok Ads IS available via MCP under the `tiktok__` prefix.
+TikTok Ads IS available via MCP under the `tiktok__` prefix. Note there is no "all campaigns" mode on the report tools: `campaign_ids` (or `ad_ids`) must be passed explicitly.
 
 ## Output format
 

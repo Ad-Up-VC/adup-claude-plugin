@@ -28,7 +28,7 @@ For each active shop, pull recent data from all connected platforms:
 - All monetary values in micros — divide by 1,000,000
 
 ### TikTok Ads (if connected)
-- TikTok IS available via MCP under the `tiktok__` prefix — use `tiktok__get_tiktok_campaign_reports(shop_slug="<slug>", ...)` for campaign-level spend, impressions, CTR
+- TikTok IS available via MCP under the `tiktok__` prefix. The report tool is **ID-scoped** — call `tiktok__get_tiktok_campaigns(shop_slug="<slug>")` first, then `tiktok__get_tiktok_campaign_reports(shop_slug="<slug>", campaign_ids=[...], start_date="<YYYY-MM-DD>", end_date="<YYYY-MM-DD>")` for campaign-level spend, impressions, CTR. All three of `campaign_ids`, `start_date`, `end_date` are required — there is no "all campaigns" mode
 
 ### LinkedIn Ads (if connected)
 - LinkedIn IS available via MCP under the `linkedin__` prefix — use `linkedin__get_ad_analytics(shop_slug="<slug>", ...)` for spend, impressions, clicks, CTR

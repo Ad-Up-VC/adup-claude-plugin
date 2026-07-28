@@ -18,7 +18,7 @@ description: Analyse creative performance across formats, content types, and cop
 ### Facebook/Instagram Ads
 - `facebook__get_ad_insights(time_range={...}, shop_slug="<slug>", metric_categories=["performance", "conversion"])` for ad-level performance
 - `facebook__get_ads(shop_slug="<slug>")` to get creative details: image_url, body, title, call_to_action_type, object_type
-- `facebook__analyze_creative_performance(time_range={...}, shop_slug="<slug>")` for creative-level breakdowns
+- `facebook__analyze_creative_performance(lookback_days=30, shop_slug="<slug>")` for creative-level breakdowns — note this tool takes `lookback_days` (plus optional `min_impressions`, `min_conversions`), **not** a `time_range` object
 - Include WoW trend data with `time_increment=7`
 
 ### Google Ads
@@ -26,7 +26,7 @@ description: Analyse creative performance across formats, content types, and cop
 - `google_ads__get_google_ads_ad_creatives(shop_slug="<slug>")` for RSA headline/description performance and asset performance ratings (LOW, GOOD, BEST)
 
 ### TikTok Ads (if connected)
-- TikTok IS available via MCP under the `tiktok__` prefix — use `tiktok__get_tiktok_ad_reports(shop_slug="<slug>", ...)` for ad/creative-level metrics
+- TikTok IS available via MCP under the `tiktok__` prefix. The ad report tool is **ID-scoped** — call `tiktok__get_tiktok_ads(shop_slug="<slug>")` first to get ad IDs, then `tiktok__get_tiktok_ad_reports(shop_slug="<slug>", ad_ids=[...], start_date="<YYYY-MM-DD>", end_date="<YYYY-MM-DD>")` for ad/creative-level metrics. All three of `ad_ids`, `start_date`, `end_date` are required
 
 ### LinkedIn Ads (if connected)
 - `linkedin__get_ad_analytics(shop_slug="<slug>", ...)` for creative-level performance: impressions, clicks, CTR, conversions, CPL

@@ -39,6 +39,29 @@ shopify, openai_ads, bol_com, reddit_ads, x_ads, dv360, adjust, trustpilot
 
 plus remote vendor servers registered per brand (e.g. `semrush`).
 
+## Argument gotchas (verified against the live tool schemas)
+The tool list is authoritative — read each tool's schema before calling it. Three
+shapes trip people up, because sibling tools disagree:
+
+- **Date arguments are not uniform.** Facebook insight tools take a `time_range`
+  object (`{"since": "YYYY-MM-DD", "until": "YYYY-MM-DD"}`); Google Ads and TikTok
+  take flat `start_date` / `end_date` strings; LinkedIn takes `date_range` (a
+  TimeRange object); and some Facebook analysis tools take neither —
+  `facebook__analyze_creative_performance` and `facebook__detect_ad_fatigue` take
+  `lookback_days`, `facebook__get_budget_pacing` takes a `date_range` **string**
+  (`"this_month"`, `"last_30d"`, `"this_week"`). Never assume; check the schema.
+- **TikTok report tools are ID-scoped and have no "all" mode.**
+  `tiktok__get_tiktok_campaign_reports` requires `campaign_ids`, and
+  `tiktok__get_tiktok_ad_reports` requires `ad_ids` — along with `start_date` and
+  `end_date`. Fetch the IDs first (`tiktok__get_tiktok_campaigns` /
+  `tiktok__get_tiktok_ads`), then report on them. Calling them with only a date
+  range fails validation.
+- **Every `propose_*` write tool requires `reasoning`** — plus the entity it acts
+  on (`entity_type` + `entity_id`, or `campaign_id` / `adset_id` / `ad_group_id` /
+  `creative_id` depending on the tool) and the new value (`new_budget`,
+  `new_status`, …). `reasoning` is not decoration: it is what the human approver
+  reads in the action queue before approving or denying, so write it for them.
+
 Examples: `facebook__get_campaigns`, `facebook__get_ad_insights`,
 `google_ads__execute_google_ads_gaql_query`,
 `google_ads__get_google_ads_campaign_performance`,

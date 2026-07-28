@@ -33,8 +33,8 @@ Determine which ad set the new ad should be created in:
 
 ### Option A: Use an Existing Creative
 If the user has an existing creative ID:
-- Call `facebook__propose_create_ad(shop_slug="<slug>", creative_id="<id>", ...)`
-- This reuses an already-uploaded creative
+- Call `facebook__propose_create_ad(shop_slug="<slug>", adset_id="<id>", ad_name="<name>", reasoning="<why>", creative_id="<id>")`
+- `adset_id`, `ad_name` and `reasoning` are **required**; `creative_id` reuses an already-uploaded creative
 
 ### Option B: Define New Creative Details
 Provide the creative elements:

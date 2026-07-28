@@ -124,9 +124,16 @@ TikTok exposes native `frequency` and `reach` metrics. The same full 10-step alg
 
 TikTok report tools ARE available via MCP under the `tiktok__` prefix — `tiktok__get_tiktok_account_reports`, `tiktok__get_tiktok_campaign_reports`, `tiktok__get_tiktok_adgroup_reports`, `tiktok__get_tiktok_ad_reports`, and `tiktok__get_tiktok_video_reports`. Pull account-level and daily campaign-level data with frequency, CTR, CPC, and CPM metrics for D-3 to D-1:
 
+The report tools are **ID-scoped**: `tiktok__get_tiktok_campaign_reports` requires `campaign_ids`, and `tiktok__get_tiktok_ad_reports` requires `ad_ids`. There is no "all campaigns" mode — fetch the IDs first, then report on them:
+
 ```
+# 1. Get the campaign IDs (no IDs needed for this one)
+tiktok__get_tiktok_campaigns(shop_slug="<slug>")
+
+# 2. Report on them — campaign_ids, start_date and end_date are ALL required
 tiktok__get_tiktok_campaign_reports(
   shop_slug="<slug>",
+  campaign_ids=["<id1>", "<id2>", ...],   # from step 1
   start_date="D-3",
   end_date="D-1"
 )
@@ -193,8 +200,7 @@ LinkedIn does not expose frequency. Use daily creative-level trend analysis.
 linkedin__get_daily_performance_trends(
   shop_slug="<slug>",
   date_range={"since": "D-3", "until": "D-1"},
-  pivot="CREATIVE",
-  timeGranularity="DAILY"
+  pivot="CREATIVE"
 )
 ```
 
