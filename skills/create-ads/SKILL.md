@@ -8,7 +8,7 @@ description: Propose creating new Facebook ads within existing ad sets through t
 > **Launching multiple ads, working from local creative files, or going cross-platform (Facebook + TikTok)?** Use the creative workspace skill family instead: `/adup:creative-workspace init` to set up a local workspace, `/adup:launch` to validate/upload/propose in bulk, `/adup:status` to sync approval state back, `/adup:creative-import` to import winners or spreadsheets. This skill remains the quick path for creating a **single ad into an existing ad set** conversationally.
 
 ## Pre-flight
-- Confirm shop context for agency accounts (use `set_active_shop` if not already set)
+- Resolve shop context in all three steps: (1) `list_shops` to see the brands and their connected platforms, (2) `set_active_shop(shop_slug="<slug>")` — **required for tool discovery**, an agency key sees only the six virtual tools until a shop is active, (3) pass `shop_slug="<slug>"` explicitly on every data/action call below
 - New ads are always created in **PAUSED** status — they must be manually activated after review
 - This skill creates ads within **existing ad sets only** — no campaign or ad set creation
 
@@ -19,7 +19,7 @@ description: Propose creating new Facebook ads within existing ad sets through t
 Determine which ad set the new ad should be created in:
 
 ### Pull ad set information:
-- Use `get_adsets` to list ad sets in the target campaign
+- Use `facebook__get_adsets(shop_slug="<slug>")` to list ad sets in the target campaign
 - Check ad set status: only create ads in ACTIVE ad sets (not paused, deleted, or archived)
 - Check learning phase: creating a new ad in a Learning ad set may reset the learning clock — flag this risk
 
@@ -33,7 +33,7 @@ Determine which ad set the new ad should be created in:
 
 ### Option A: Use an Existing Creative
 If the user has an existing creative ID:
-- Call `propose_create_ad` with `creative_id`
+- Call `facebook__propose_create_ad(shop_slug="<slug>", creative_id="<id>", ...)`
 - This reuses an already-uploaded creative
 
 ### Option B: Define New Creative Details
@@ -55,7 +55,8 @@ Provide the creative elements:
 
 ## Step 3 — Propose Ad Creation
 
-Call `propose_create_ad` with:
+Call `facebook__propose_create_ad` with:
+- `shop_slug`: `"<slug>"` (always explicit — `propose_create_ad` is Facebook's, but the shop must still be pinned per call)
 - `adset_id`: Target ad set
 - `ad_name`: Descriptive name following the account's naming convention
 - Creative specification (either `creative_id` OR `page_id` + `message` + `link` + optional fields)

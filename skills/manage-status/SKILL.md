@@ -6,7 +6,7 @@ description: Propose pausing or activating Facebook Ads campaigns, ad sets, and 
 # Status Management (Pause / Activate)
 
 ## Pre-flight
-- Confirm shop context for agency accounts (use `set_active_shop` if not already set)
+- Resolve shop context in all three steps: (1) `list_shops` to see the brands and their connected platforms, (2) `set_active_shop(shop_slug="<slug>")` — **required for tool discovery**, an agency key sees only the six virtual tools until a shop is active, (3) pass `shop_slug="<slug>"` explicitly on every data/action call below
 - Default lookback: 14 days. State the assumption if user doesn't specify
 
 ---
@@ -16,12 +16,12 @@ description: Propose pausing or activating Facebook Ads campaigns, ad sets, and 
 Pull entity-level performance data before proposing any status change:
 
 ### For campaigns/ad sets:
-- Use `get_campaign_performance_metrics(time_range={...}, shop_slug="<slug>")` for campaign-level metrics
-- Use `get_ad_insights(time_range={...}, campaign_id="<id>", shop_slug="<slug>")` for ad set/ad-level data
-- Check learning phase status via `get_adsets(shop_slug="<slug>")` — **never propose changes to entities in Learning or Learning Limited**
+- Use `facebook__get_campaign_performance_metrics(time_range={...}, shop_slug="<slug>")` for campaign-level metrics
+- Use `facebook__get_ad_insights(time_range={...}, campaign_id="<id>", shop_slug="<slug>")` for ad set/ad-level data
+- Check learning phase status via `facebook__get_adsets(shop_slug="<slug>")` — **never propose changes to entities in Learning or Learning Limited**
 
 ### For individual ads:
-- Use `get_ad_insights(time_range={...}, ad_id="<id>", shop_slug="<slug>")` for ad-level performance
+- Use `facebook__get_ad_insights(time_range={...}, ad_id="<id>", shop_slug="<slug>")` for ad-level performance
 - Check parent ad set status for learning phase
 
 ---
@@ -56,8 +56,11 @@ Pull entity-level performance data before proposing any status change:
 
 ## Step 3 — Propose Status Change
 
+`propose_status_change` exists on several platforms, so the bare name is ambiguous — this skill is Facebook Ads, so always call `facebook__propose_status_change` (the Google Ads / TikTok / LinkedIn equivalents are `google_ads__propose_status_change`, `tiktok__propose_status_change`, `linkedin__propose_status_change`).
+
 ### For each justified pause:
-- Call `propose_status_change` with:
+- Call `facebook__propose_status_change` with:
+  - `shop_slug`: `"<slug>"` (always explicit)
   - `entity_type`: "campaign", "adset", or "ad"
   - `entity_id`: the Facebook ID
   - `new_status`: "PAUSED"
@@ -67,7 +70,8 @@ Pull entity-level performance data before proposing any status change:
 > "Campaign 'Summer Sale - Prospecting' has spent €2,340 over the last 14 days with only 3 estimated conversions (CPA: €780 vs target of €45). ROAS is 0.4x against a 3x target. Frequency has reached 4.2 on the primary ad set, indicating audience saturation. Recommend pausing to prevent further budget waste."
 
 ### For each justified activation:
-- Call `propose_status_change` with:
+- Call `facebook__propose_status_change` with:
+  - `shop_slug`: `"<slug>"` (always explicit)
   - `entity_type`: "campaign", "adset", or "ad"
   - `entity_id`: the Facebook ID
   - `new_status`: "ACTIVE"

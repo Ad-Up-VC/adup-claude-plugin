@@ -15,7 +15,7 @@ Reminder to surface when reporting: approved ads are created on the platform in 
 
 ## Step 1 — Load the ledger
 
-1. Find the workspace root (walk up to `.adup/workspace.json`); read `workspace.json` and `state.json`.
+1. Find the workspace root (walk up to `.adup/workspace.json`); read `workspace.json` and `state.json`. The `shop_slug` in `workspace.json` is the shop for this whole run — it goes into the `<shop_slug>` path segment of every request below, and into `shop_slug="<slug>"` on any MCP tool call. Never depend on the gateway's ambient active shop here: it is set per API key and a concurrent run can clobber it.
 2. Collect every `targets` entry across `state.json` `ads`: `(ad_path, platform, lang, proposal_id, last_known_status)`. Nothing recorded → say "nothing launched yet — run /adup:launch" and stop.
 
 ## Step 2 — Query proposal statuses
@@ -74,7 +74,7 @@ Each row carries `{id, platform, source_proposal (summary incl. entity_name + cr
 1. **Announce it**: "Reviewer asked to also launch '<entity_name>' on {platform}" (+ the reviewer's `notes`, if any).
 2. **Locate the source ad**: match the source proposal id against `state.json` `targets`. If the source isn't in this workspace, say so and offer to scaffold a fresh ad folder from the request's creative preview + copy.
 3. **Scaffold/adjust the `ad.md`**: add the platform to `platforms:`. If the source copy exceeds the target platform's limits (platform-specs.json), **draft platform-fit copy as a qualified section** (e.g. `## Primary text (tiktok)`) and **propose it to the user — never adjust copy silently**.
-4. **Launch**: with the user's go-ahead, run the normal `/adup:launch` flow for that ad scoped to the requested platform (validate → upload → propose; same batch/count-confirmation rules).
+4. **Launch**: with the user's go-ahead, run the normal `/adup:launch` flow for that ad scoped to the requested platform (validate → upload → propose; same batch/count-confirmation rules). The proposal calls are namespaced `platform__tool` and each carries the workspace's `shop_slug="<slug>"` explicitly — a replication write must never land on another client.
 5. **Close the request**:
 
    ```bash

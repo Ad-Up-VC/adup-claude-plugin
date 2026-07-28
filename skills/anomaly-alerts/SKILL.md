@@ -6,7 +6,10 @@ description: Monitor ad accounts for anomalies every 3 hours. Detects spend spik
 # Anomaly Detection & Alerts
 
 ## Pre-flight
-- Iterate through all active shops with anomaly monitoring enabled
+- Call `list_shops` to get every brand + its `connected_platforms`
+- Call `set_active_shop(shop_slug="<slug>")` — **required for tool discovery**: an agency key only sees the 6 virtual tools until a shop is active
+- Iterate through all active shops with anomaly monitoring enabled. **Inside the loop, pass `shop_slug="<that shop's slug>"` on EVERY data call** — `set_active_shop` sets ONE ambient shop per API key, so a loop relying on the ambient shop reads the wrong client (and this skill runs every 3 hours, so concurrent runs will clobber each other)
+- All platform tools are namespaced `platform__tool` on the aggregated `adup` connector
 - Pull today's data with hourly/daily granularity
 - Compare against 7-day rolling averages
 
@@ -17,18 +20,18 @@ description: Monitor ad accounts for anomalies every 3 hours. Detects spend spik
 For each active shop, pull recent data from all connected platforms:
 
 ### Facebook Ads
-- `get_campaign_performance_metrics(time_range={...}, shop_slug="<slug>")` for today and last 7 days
-- `get_ad_insights(time_range={...}, time_increment=1, shop_slug="<slug>")` for daily granularity
+- `facebook__get_campaign_performance_metrics(time_range={...}, shop_slug="<slug>")` for today and last 7 days
+- `facebook__get_ad_insights(time_range={...}, time_increment=1, shop_slug="<slug>")` for daily granularity
 
 ### Google Ads
-- `get_google_ads_campaign_performance(start_date="...", end_date="...", shop_slug="<slug>")` for today and last 7 days
+- `google_ads__get_google_ads_campaign_performance(start_date="...", end_date="...", shop_slug="<slug>")` for today and last 7 days
 - All monetary values in micros — divide by 1,000,000
 
 ### TikTok Ads (if connected)
-- TikTok campaign tools not yet available via MCP — skip or note
+- TikTok IS available via MCP under the `tiktok__` prefix — use `tiktok__get_tiktok_campaign_reports(shop_slug="<slug>", ...)` for campaign-level spend, impressions, CTR
 
 ### LinkedIn Ads (if connected)
-- LinkedIn tools not yet available via MCP — skip or note
+- LinkedIn IS available via MCP under the `linkedin__` prefix — use `linkedin__get_ad_analytics(shop_slug="<slug>", ...)` for spend, impressions, clicks, CTR
 
 ---
 
@@ -67,7 +70,7 @@ For each active shop, pull recent data from all connected platforms:
 ### For spend spikes:
 - Identify the campaign(s) responsible
 - Calculate the appropriate budget to return to normal pacing
-- Call `propose_budget_change` with reasoning citing the spike data
+- Call the owning platform's `propose_budget_change` — `facebook__propose_budget_change`, `google_ads__propose_budget_change`, `tiktok__propose_budget_change`, or `linkedin__propose_budget_change` — with `shop_slug="<slug>"` and reasoning citing the spike data. These are per-platform middleware tools: always namespace with the platform the entity actually lives on. The same holds for `propose_status_change`.
 - Example: "Campaign 'Retargeting US' spending at 3.2x daily average rate. At current pace, will exhaust monthly budget 10 days early. Propose reducing daily budget from $180 to $120."
 
 ### For delivery stops:

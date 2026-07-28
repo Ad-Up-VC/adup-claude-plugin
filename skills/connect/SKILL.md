@@ -58,14 +58,25 @@ If your agency owner has installed additional skills (e.g., "LinkedIn Engagement
 ## Switching shops — refresh the tool list
 
 All tools are served by the single `adup` connector, namespaced per platform
-(e.g. `facebook__get_campaigns`, `google_ads__search_google_ads_data`). After you
-call `set_active_shop`, the available tools change to that shop's connected
+(e.g. `facebook__get_ad_insights`, `google_ads__execute_google_ads_gaql_query`,
+`ga4__get_ecommerce_performance`). Note the Google Ads prefix is `google_ads__`,
+never `google__`.
+
+**The tool list is gated on the active shop.** Until you call `set_active_shop`
+(or your key has exactly one shop), only the gateway's own virtual tools are
+listed — `list_shops`, `set_active_shop` and friends — and no platform tools at
+all. After `set_active_shop`, the available tools change to that shop's connected
 platforms. The gateway emits a `notifications/tools/list_changed`, but most MCP
 clients don't act on it automatically — so **reload tools / reconnect the
 connector** to pick up the newly-active shop's tools.
 
 Only connected platforms appear: if a shop has just Facebook Ads + GA4 connected,
 you'll see only `facebook__*` and `ga4__*` tools.
+
+Passing `shop_slug` on a call does **not** change what is listed — it only changes
+which client an already-listed tool reads from. You still need the right shop
+active for its tools to exist, and you should still pass `shop_slug` explicitly on
+every data call (the active shop is shared per API key and parallel runs race).
 
 ## Error handling
 

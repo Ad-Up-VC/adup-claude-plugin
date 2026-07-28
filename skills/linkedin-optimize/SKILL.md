@@ -6,16 +6,16 @@ description: Propose LinkedIn Ads optimizations through the action middleware. C
 # LinkedIn Ads Optimization
 
 ## Pre-flight
-- Confirm shop context for agency accounts (use `set_active_shop` if not already set)
+- Resolve shop context in all three steps: (1) `list_shops` to see the brands and their connected platforms, (2) `set_active_shop(shop_slug="<slug>")` — **required for tool discovery**, an agency key sees only the six virtual tools until a shop is active, (3) pass `shop_slug="<slug>"` explicitly on every data/action call below
 - Default lookback: 14 days. State the assumption if user doesn't specify
-- Pull campaign-level performance data from LinkedIn Ads MCP tools
+- Pull campaign-level performance data from the `linkedin__*` MCP tools — LinkedIn **is** available via MCP
 - LinkedIn is typically B2B — benchmark CPL between $50-$150 depending on industry
 
 ---
 
 ## Step 1 — Analyse Performance
 
-Pull performance data using LinkedIn Ads read tools:
+Pull performance data using the namespaced LinkedIn Ads read tools (`linkedin__*`, e.g. `linkedin__get_linkedin_campaigns(shop_slug="<slug>")`), always with an explicit `shop_slug`:
 - Campaign-level: spend, impressions, clicks, CTR, conversions, CPL
 - Creative-level: engagement (likes, comments, shares), CTR per creative
 - Compare last 7 days vs previous 7 days for trends
@@ -53,8 +53,11 @@ Pull performance data using LinkedIn Ads read tools:
 
 ## Step 3 — Propose Changes
 
+The `propose_*` write tools exist on several platforms, so a bare name is ambiguous — always use the `linkedin__` ones here, with an explicit `shop_slug`.
+
 ### Budget Changes
-Call `propose_budget_change` (LinkedIn Ads) for each candidate:
+Call `linkedin__propose_budget_change` for each candidate:
+- `shop_slug`: `"<slug>"` (always explicit)
 - `entity_type`: "campaign" or "campaign_group"
 - `new_budget`: in account currency (e.g., 50.0 for $50)
 - LinkedIn uses `dailyBudget` or `totalBudget` — the tool auto-detects which one the entity uses
@@ -62,14 +65,15 @@ Call `propose_budget_change` (LinkedIn Ads) for each candidate:
 - **Losers:** Propose 15-25% budget decrease
 
 ### Status Changes
-Call `propose_status_change` (LinkedIn Ads) for each candidate:
+Call `linkedin__propose_status_change` for each candidate:
+- `shop_slug`: `"<slug>"` (always explicit)
 - `entity_type`: "campaign" or "campaign_group"
 - `new_status`: "ACTIVE" or "PAUSED"
 - Reasoning must cite CPL, conversion volume, trend data
 
 ### Creative Updates
-Call `propose_creative_update` (LinkedIn Ads) for underperforming creatives:
-- Provide `creative_id`, `headline` (new headline), `description` (new description)
+Call `linkedin__propose_creative_update` for underperforming creatives:
+- Provide `shop_slug` (always explicit), `creative_id`, `headline` (new headline), `description` (new description)
 - At least one of headline or description must be provided
 - Base new copy on patterns from high-performing creatives in the account
 

@@ -9,27 +9,39 @@ Pull a quick overview of all connected advertising platforms for the active shop
 
 ## Pre-flight
 
-If the shop is an agency account and no client has been specified, call `list_shops` and ask which client.
+1. Call `list_shops` to see brands + `connected_platforms`. If the shop is an agency account and no client has been specified, ask which client.
+2. Call `set_active_shop(shop_slug="<slug>")` — **required for tool discovery**: an agency key only sees the 6 virtual tools until a shop is active.
+3. Pass `shop_slug="<slug>"` on every data call below — the ambient active shop is per-API-key and races across concurrent runs.
+
 If no date range given, default to last 30 days and state this.
 
 ## Tool call sequence
 
-Call performance tools for each connected platform (check `connected_platforms` from `list_shops`):
+Call performance tools for each connected platform (check `connected_platforms` from `list_shops`). All platform tools are namespaced `platform__tool` on the aggregated `adup` connector:
 
 **If Facebook Ads connected:**
 ```
-get_campaign_performance_metrics(time_range={"since": "YYYY-MM-DD", "until": "YYYY-MM-DD"})
+facebook__get_campaign_performance_metrics(shop_slug="<slug>", time_range={"since": "YYYY-MM-DD", "until": "YYYY-MM-DD"})
 ```
 
 **If Google Ads connected:**
 ```
-get_google_ads_account_currency()
-get_google_ads_campaign_performance(start_date="YYYY-MM-DD", end_date="YYYY-MM-DD")
+google_ads__get_google_ads_account_currency(shop_slug="<slug>")
+google_ads__get_google_ads_campaign_performance(shop_slug="<slug>", start_date="YYYY-MM-DD", end_date="YYYY-MM-DD")
 ```
 Note: Google Ads returns costs in micros — divide by 1,000,000 for actual values.
 
 **If LinkedIn Ads connected:**
-- LinkedIn tools not yet available via MCP — note in output that LinkedIn data is pending integration
+```
+linkedin__get_ad_analytics(shop_slug="<slug>", ...)
+```
+LinkedIn Ads IS available via MCP under the `linkedin__` prefix. Use its analytics tools for spend, clicks, CTR, and leads/CPL.
+
+**If TikTok Ads connected:**
+```
+tiktok__get_tiktok_campaign_reports(shop_slug="<slug>", ...)
+```
+TikTok Ads IS available via MCP under the `tiktok__` prefix.
 
 ## Output format
 

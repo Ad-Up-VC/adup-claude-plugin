@@ -33,6 +33,15 @@ Never hard-fail the briefing over one missing tool — build from whatever data 
    named no brand, call `list_shops`; if there's exactly one, use it; if several, ask
    which client this is for before continuing.
 
+Once the slug is resolved, call `set_active_shop(shop_slug="<slug>")` — this is **required
+for tool discovery**: an agency key only lists the 6 virtual tools until a shop is active
+(or the key has exactly one shop). Then still pass `shop_slug` explicitly per call: the
+ambient active shop is one-per-API-key and concurrent runs race.
+
+All platform tools are namespaced `platform__tool` (double underscore) on the aggregated
+`adup` connector; only the 6 virtual tools (`list_shops`, `set_active_shop`, `get_kpi`,
+`create_report`, `get_report_template`, `get_report_branding`) are unprefixed.
+
 Record the resolved **brand display name** and **slug** — the briefing is titled with the
 display name and every data call carries the slug.
 
@@ -68,8 +77,8 @@ in the tool list.
 
 **Facebook & Instagram**
 ```
-get_campaign_performance_metrics(time_range={...}, shop_slug="<slug>")
-get_ad_insights(time_range={...}, shop_slug="<slug>", metric_categories=["performance","conversion","standard_events"])
+facebook__get_campaign_performance_metrics(time_range={...}, shop_slug="<slug>")
+facebook__get_ad_insights(time_range={...}, shop_slug="<slug>", metric_categories=["performance","conversion","standard_events"])
 ```
 Campaign-level spend, impressions, link clicks, CTR, purchases, ROAS, frequency. Note rising
 frequency + falling CTR (creative fatigue) and any campaign still in the optimization/learning
@@ -77,8 +86,8 @@ period (flag, don't judge).
 
 **Google Ads**
 ```
-get_google_ads_account_currency(shop_slug="<slug>")
-get_google_ads_campaign_performance(start_date="...", end_date="...", shop_slug="<slug>")
+google_ads__get_google_ads_account_currency(shop_slug="<slug>")
+google_ads__get_google_ads_campaign_performance(start_date="...", end_date="...", shop_slug="<slug>")
 ```
 - **CRITICAL: divide EVERY `_micros` value by 1,000,000 before using or displaying.**
 - Note impression-share headroom (a strong campaign under its eligible-impression ceiling is
@@ -86,14 +95,15 @@ get_google_ads_campaign_performance(start_date="...", end_date="...", shop_slug=
 
 **E-commerce / GA4 (source of truth for revenue)**
 ```
-get_ecommerce_performance(user_prompt="Revenue by traffic source", time_range={...}, format_type="table", shop_slug="<slug>")
-get_user_acquisition(user_prompt="Sessions and revenue by channel", time_range={...}, shop_slug="<slug>")
+ga4__get_ecommerce_performance(user_prompt="Revenue by traffic source", time_range={...}, format_type="table", shop_slug="<slug>")
+ga4__get_user_acquisition(user_prompt="Sessions and revenue by channel", time_range={...}, shop_slug="<slug>")
 ```
 Blended revenue and the channel mix. Blended return = GA4 revenue / total ad spend.
 
-**Other platforms** — if `get_ecommerce_performance` / TikTok / LinkedIn aggregated tools are
-present, pull them the same way; if a platform's report tools aren't available via MCP yet,
-note the gap in the briefing and move on.
+**Other platforms** — TikTok (`tiktok__*`) and LinkedIn (`linkedin__*`) ARE available via MCP;
+pull them the same way when connected (e.g. `linkedin__get_ad_analytics(shop_slug="<slug>", ...)`).
+If a platform's tools genuinely aren't in the tool list for this key, note the gap in the
+briefing and move on.
 
 If the plugin exposes helper skills you can lean on for richer signal (e.g.
 `ad-fatigue`, `creative-intelligence`, `budget-tracker`), you MAY reference their framing,

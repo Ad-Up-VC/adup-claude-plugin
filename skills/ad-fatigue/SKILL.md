@@ -13,10 +13,12 @@ Once per morning, after yesterday's data has fully synced from each platform (ty
 
 ## Pre-flight
 
-1. Confirm shop context for agency accounts — call `list_shops` + `set_active_shop` if not set
-2. Determine which platforms are connected (check `connected_platforms` from `list_shops`)
-3. Set date variables: D-1 = yesterday, D-2 = day before, D-3 = three days ago (YYYY-MM-DD)
-4. Run each connected platform's fatigue check below, then combine into one output
+1. Call `list_shops` to get every brand + its `connected_platforms`
+2. Call `set_active_shop(shop_slug="<slug>")` — **required for tool discovery**: an agency key only sees the 6 virtual tools until a shop is active
+3. **Multi-shop loop — pass `shop_slug` explicitly per call.** This skill iterates shops. `set_active_shop` sets ONE ambient shop per API key, so concurrent runs race and a loop that relies on the ambient shop will read the wrong client. For EVERY shop in the loop, pass `shop_slug="<that shop's slug>"` on EVERY data call. Never let the loop depend on the ambient active shop.
+4. Determine which platforms are connected per shop (check `connected_platforms` from `list_shops`)
+5. Set date variables: D-1 = yesterday, D-2 = day before, D-3 = three days ago (YYYY-MM-DD)
+6. Run each connected platform's fatigue check below, then combine into one output per shop
 
 ---
 
@@ -28,14 +30,15 @@ Meta has native frequency data. The full 10-step algorithm applies.
 
 ```
 # Step 1: 3 days of daily ad-level data
-get_ad_insights(
+facebook__get_ad_insights(
+  shop_slug="<slug>",
   time_range={"since": "D-3", "until": "D-1"},
   time_increment=1,
   # Returns per day: spend, impressions, inline_link_clicks, ctr, cpc, cpm, frequency, reach
 )
 
 # Check for Learning phase ad sets — always do this first
-get_adsets(campaign_id="<each_active_campaign_id>")
+facebook__get_adsets(shop_slug="<slug>", campaign_id="<each_active_campaign_id>")
 ```
 
 Skip any ad set with status `Learning` or `Learning Limited` — flag it in the output with ⏳ and do not evaluate. Do not make performance judgments or recommendations for learning ad sets.
@@ -119,7 +122,15 @@ TikTok exposes native `frequency` and `reach` metrics. The same full 10-step alg
 
 ### Data Retrieval
 
-TikTok campaign/ad report tools are not yet available via MCP. When available, pull account-level and daily campaign-level data with frequency, CTR, CPC, and CPM metrics for D-3 to D-1.
+TikTok report tools ARE available via MCP under the `tiktok__` prefix — `tiktok__get_tiktok_account_reports`, `tiktok__get_tiktok_campaign_reports`, `tiktok__get_tiktok_adgroup_reports`, `tiktok__get_tiktok_ad_reports`, and `tiktok__get_tiktok_video_reports`. Pull account-level and daily campaign-level data with frequency, CTR, CPC, and CPM metrics for D-3 to D-1:
+
+```
+tiktok__get_tiktok_campaign_reports(
+  shop_slug="<slug>",
+  start_date="D-3",
+  end_date="D-1"
+)
+```
 
 Ignore campaigns with zero spend on D-1.
 
@@ -143,10 +154,10 @@ Google Ads does not expose frequency or reach. Use engagement trend analysis ins
 
 ```
 # Period 1: D-2 to D-1 (most recent)
-get_google_ads_campaign_performance(start_date="D-2", end_date="D-1")
+google_ads__get_google_ads_campaign_performance(shop_slug="<slug>", start_date="D-2", end_date="D-1")
 
 # Period 2: D-3 to D-2 (comparison)
-get_google_ads_campaign_performance(start_date="D-3", end_date="D-2")
+google_ads__get_google_ads_campaign_performance(shop_slug="<slug>", start_date="D-3", end_date="D-2")
 ```
 
 Always divide all `cost_micros` values by 1,000,000 before displaying. Never show raw micro values.
@@ -179,12 +190,15 @@ LinkedIn does not expose frequency. Use daily creative-level trend analysis.
 ### Data Retrieval
 
 ```
-get_daily_performance_trends(
+linkedin__get_daily_performance_trends(
+  shop_slug="<slug>",
   date_range={"since": "D-3", "until": "D-1"},
   pivot="CREATIVE",
   timeGranularity="DAILY"
 )
 ```
+
+LinkedIn Ads IS available via MCP under the `linkedin__` prefix.
 
 ### Analysis
 

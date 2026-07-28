@@ -6,18 +6,18 @@ description: Monitor budget pacing across Facebook Ads campaigns. Identifies ove
 # Budget Pacing Analysis
 
 ## Pre-flight
-- Confirm shop context for agency accounts (use `set_active_shop` if not already set)
+- Resolve shop context in all three steps: (1) `list_shops` to see the brands and their connected platforms, (2) `set_active_shop(shop_slug="<slug>")` — **required for tool discovery**, an agency key sees only the six virtual tools until a shop is active, (3) pass `shop_slug="<slug>"` explicitly on every data/action call below
 - Default period: current month. State the assumption if user doesn't specify
 
 ---
 
 ## Step 1 — Pull Pacing Data
 
-Call `get_campaign_performance_metrics` with:
+Call `facebook__get_campaign_performance_metrics` with:
 - `time_range`: `{"since": "YYYY-MM-DD", "until": "YYYY-MM-DD"}` for the current month
-- `shop_slug`: active shop slug
+- `shop_slug`: the shop slug, always passed explicitly
 
-Cross-reference with `get_campaigns` to get daily budgets per campaign. Calculate pacing by comparing actual spend vs expected spend at this point in the month.
+Cross-reference with `facebook__get_campaigns(shop_slug="<slug>")` to get daily budgets per campaign. Calculate pacing by comparing actual spend vs expected spend at this point in the month.
 
 ---
 
@@ -43,7 +43,7 @@ Cross-reference with `get_campaigns` to get daily budgets per campaign. Calculat
 ## Step 3 — Propose Adjustments
 
 ### Overpacing (> 115%)
-- Propose **budget decrease** via `propose_budget_change`
+- Propose **budget decrease** via `facebook__propose_budget_change(shop_slug="<slug>", ...)`
 - Calculate the adjustment needed to bring pacing back to 100%
 - Reasoning: *"Campaign 'Retargeting US' is pacing at 132% of budget — projected to exhaust $5,000 budget by the 22nd. Recommend reducing daily budget from $180 to $150 to pace through month-end."*
 

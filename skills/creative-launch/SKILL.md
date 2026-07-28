@@ -18,7 +18,7 @@ Environment: `ADUP_API_KEY` (personal employee key), API base `${ADUP_API_BASE:-
 ## Step 1 — Resolve context
 
 1. Find the workspace root: walk up from the given path until a directory containing `.adup/workspace.json` is found. Missing → tell the user to run `/adup:creative-workspace init` first and stop.
-2. Read `.adup/workspace.json` (shop_slug, defaults) and `.adup/state.json`. Call `set_active_shop(shop_slug="<slug>")`.
+2. Read `.adup/workspace.json` (shop_slug, defaults) and `.adup/state.json`. Call `set_active_shop(shop_slug="<slug>")` — **required for tool discovery** (until a shop is active, an agency key sees only the six virtual tools, no `facebook__*` / `tiktok__*` at all). Then keep that `shop_slug` and pass it **explicitly on every platform tool call in this skill**, reads and writes alike. The active shop is ambient *per API key*: a concurrent launch or scheduled task sharing the key can clobber it between calls, and a write that lands on the wrong client is the worst failure mode here.
 3. Collect every `ad.md` in scope. For each, resolve its full context:
    - `_campaign.md` and `_adset.md` frontmatter from the enclosing folders.
    - Effective **platforms**: ad frontmatter → campaign frontmatter → workspace default (first one that sets it wins).
@@ -47,7 +47,7 @@ The **detected** `aspect_label` / format / duration from inspect.sh (and, for al
 - **Text limits** per section: `soft` exceeded = WARN (truncation), `hard` exceeded = ERROR. Check the copy variant actually used per platform/language (see fan-out rules).
 - **Google (RSA) shape**: an ad targeting google needs 3–15 headline variants (≤30 chars each) and 2–4 description variants (≤90 chars each) — see the google fan-out rules; too few usable variants = ERROR for the google target only. Media checks don't apply to google (text-only in v1).
 - **Frontmatter**: `link` is a valid URL, `cta` is a known value, `format` matches the detected assets (carousel needs an unambiguous per-card asset order — explicit `creative:` lines per `## Card n` section or `card1*`/`card2*`… names; 2–10 cards).
-- **Targets**: `map:` provides each targeted platform's ids — campaign/adset (facebook), campaign/adgroup + `identity_id` (tiktok), campaign/adgroup (google), campaign (linkedin). If TikTok `identity_id` is missing, call `tiktok__get_tiktok_identities`, show the options, ask the user to pick, and (with their OK) record it in `_adset.md` — this is the one file edit allowed during validation.
+- **Targets**: `map:` provides each targeted platform's ids — campaign/adset (facebook), campaign/adgroup + `identity_id` (tiktok), campaign/adgroup (google), campaign (linkedin). If TikTok `identity_id` is missing, call `tiktok__get_tiktok_identities(shop_slug="<slug>")`, show the options, ask the user to pick, and (with their OK) record it in `_adset.md` — this is the one file edit allowed during validation.
 - Drive/https creatives can't be probed locally: mark them "server will validate on fetch" (WARN, not ERROR).
 
 Present ONE consolidated report table: `ad | platform | check | severity | detail`.
@@ -118,32 +118,34 @@ Do not proceed without an explicit yes. If N is surprisingly large (language × 
   ```
 
   Include each platform's key(s) exactly as they appear under `map.<platform>` (only platforms actually present in `map:`; omit `create: true` phantoms). **Why:** the ADUP portal lets the reviewer tick "also launch on X" when approving a proposal — the backend can only auto-create the replica on platform X if these target ids are already embedded in the proposal. A proposal without `platform_targets` still works, but the reviewer loses the cross-platform option.
-- **`map.<platform>.create: true`** (new campaign/ad set) is **two-phase** in v1: propose the campaign/ad set creation first (`facebook__ads_campaign_create` / `facebook__ads_adset_create` / `tiktok__propose_create_campaign` / `tiktok__propose_create_adgroup`, each with `batch_id`), then tell the user to approve those in the portal and run `/adup:status` to capture the created ids into `map:` — THEN re-run `/adup:launch` for the ads. Do not chain unresolved parent ids in one batch.
+- **`map.<platform>.create: true`** (new campaign/ad set) is **two-phase** in v1: propose the campaign/ad set creation first (`facebook__ads_campaign_create` / `facebook__ads_adset_create` / `tiktok__propose_create_campaign` / `tiktok__propose_create_adgroup`, each with `shop_slug` and `batch_id`), then tell the user to approve those in the portal and run `/adup:status` to capture the created ids into `map:` — THEN re-run `/adup:launch` for the ads. Do not chain unresolved parent ids in one batch.
 - **Enhancements**: read `defaults.enhancements` from workspace.json — `off` → pass `enhancements_opt_out: true` on every Meta creative; `on` → `false`; `ask` → ask once per launch. Never re-ask when it's `off`/`on`.
 
-**Bulk vs individual proposing.** Facebook and TikTok expose `propose_bulk_launch(ads[], shared_reasoning, batch_id?)` (`facebook__propose_bulk_launch` / `tiktok__propose_bulk_launch`): up to **50 ads per call**, with **all-or-nothing pre-validation** (one invalid spec rejects the whole call — fix and retry; nothing partial is filed).
+**Bulk vs individual proposing.** Facebook and TikTok expose `propose_bulk_launch(shop_slug, ads[], shared_reasoning, batch_id?)` (`facebook__propose_bulk_launch` / `tiktok__propose_bulk_launch`): up to **50 ads per call**, with **all-or-nothing pre-validation** (one invalid spec rejects the whole call — fix and retry; nothing partial is filed). One bulk call can carry 50 writes, so **`shop_slug` is mandatory on it** — never let it fall back to the ambient active shop.
 
-- When launching **>3 ads to one platform**, prefer ONE `propose_bulk_launch` call per platform: build the `ads[]` array from the already-validated ad specs (each element = the same fields the individual tool would take, incl. `metadata.platform_targets`), set `shared_reasoning` to the one-sentence campaign rationale, and pass the launch's `batch_id`.
+- When launching **>3 ads to one platform**, prefer ONE `propose_bulk_launch` call per platform: pass the workspace's `shop_slug="<slug>"` explicitly, build the `ads[]` array from the already-validated ad specs (each element = the same fields the individual tool would take, incl. `metadata.platform_targets`), set `shared_reasoning` to the one-sentence campaign rationale, and pass the launch's `batch_id`.
 - ≤3 ads, or platforms without the bulk tool (google, linkedin, snapchat initially): use the individual tools below. If a `propose_bulk_launch` call errors as unknown/unsupported on some platform, fall back gracefully to individual calls — never fail the launch over the missing bulk tool.
 - A successful bulk call returns one proposal id per ads[] element — record them in state.json exactly as with individual calls.
 
 **Facebook** (per ad × language) — call `facebook__ads_ad_create` with:
+- `shop_slug="<slug>"` (always explicit, on every proposal call below too),
 - `adset_id` (from map), `name` (`<ad-folder> | <lang>` or the account's convention),
 - the creative spec inline: `asset_id`(s) from state.json, resolved primary text/headline/description, `link`, `cta`, `enhancements_opt_out`, and for `format: carousel` the `child_attachments` array (per card: asset_id, copy, link),
 - `batch_id`, `reasoning` (one sentence: campaign + why), and `metadata` with the `platform_targets` object above.
-Use `facebook__ads_creative_create` (same creative params + `batch_id`) only when the user explicitly wants a reusable creative in the account library without an ad.
+Use `facebook__ads_creative_create` (same creative params + `shop_slug` + `batch_id`) only when the user explicitly wants a reusable creative in the account library without an ad.
 
 **TikTok** (per ad × language) — call `tiktok__propose_create_ad` with:
+- `shop_slug="<slug>"` (always explicit),
 - `adgroup_id` + `identity_id` (from map), ad name,
 - `asset_id` of the platform-filtered video, ad text (the resolved primary text, hard 100 chars), landing page URL, CTA,
 - `batch_id`, `reasoning`, and `metadata` with the `platform_targets` object above.
 
-**Google** (per ad × language) — google ads are **TEXT ads**: an ad targeting google maps to `google__propose_google_create_rsa` (Responsive Search Ad). The creative group is **NOT uploaded** for google — no media in v1.
+**Google** (per ad × language) — google ads are **TEXT ads**: an ad targeting google maps to `google_ads__propose_google_create_rsa` (Responsive Search Ad). The Google Ads prefix is **`google_ads__`, never `google__`** — `google__…` is not a valid prefix and the call will not resolve. The creative group is **NOT uploaded** for google — no media in v1.
 - Derive **3–15 headlines (≤30 chars each)** from the ad's `## Headline` section(s) and **2–4 descriptions (≤90 chars each)** from `## Description` section(s) (qualified `(google)` variants win as usual). One headline/description is rarely enough — **Claude drafts additional variants from the ad's copy (primary text included) and confirms the full list with the user before proposing**; never invent variants silently.
-- Call with: the RSA headline/description arrays, `final_url` (= `link`), the campaign/ad group from `map.google` (`campaign_id`, `adgroup_id`), `batch_id`, `reasoning`, and `metadata.platform_targets`.
+- Call with: `shop_slug="<slug>"` (always explicit), the RSA headline/description arrays, `final_url` (= `link`), the campaign/ad group from `map.google` (`campaign_id`, `adgroup_id`), `batch_id`, `reasoning`, and `metadata.platform_targets`.
 
 **LinkedIn** (per ad × language) — call `linkedin__propose_linkedin_create_ad` (single image or video ad) with:
-- the `map.linkedin` target (`campaign_id`), `asset_id` of the platform-filtered file (linkedin accepts 191x100/1x1/4x5 images, 16x9/1x1/9x16 video per platform-specs.json),
+- `shop_slug="<slug>"` (always explicit), the `map.linkedin` target (`campaign_id`), `asset_id` of the platform-filtered file (linkedin accepts 191x100/1x1/4x5 images, 16x9/1x1/9x16 video per platform-specs.json),
 - `intro_text` (the resolved primary text) and `headline`, plus `link`/CTA where applicable,
 - `batch_id`, `reasoning`, and `metadata` with the `platform_targets` object above.
 
@@ -178,3 +180,5 @@ Ads Manager / TikTok Ads Manager when you're ready to spend.
 4. **Idempotent** — unchanged ads and already-uploaded checksums are skipped; re-running a launch never duplicates uploads or proposals.
 5. **Stop-and-ask points**: ambiguous creative grouping (show the grouping table), image auto-fix, copy rewrite suggestions, TikTok identity pick, the proposal-count confirmation, and launching-only-the-valid-ones. Never assume.
 6. **Never auto-truncate copy.** Ever.
+7. **Every platform call carries an explicit `shop_slug`** — reads, uploads, and above all the up-to-50-ad `propose_bulk_launch` calls. `set_active_shop` sets ONE ambient shop per API key; a parallel launch or a scheduled task sharing the key can clobber it mid-run, and a write filed against the wrong client is the worst outcome this skill can produce. Never rely on the ambient shop for a write.
+8. **Tool names are namespaced `platform__tool`** (`facebook__`, `tiktok__`, `google_ads__`, `linkedin__`). Only `list_shops` and `set_active_shop` are unprefixed. `google__` is not a valid prefix.
