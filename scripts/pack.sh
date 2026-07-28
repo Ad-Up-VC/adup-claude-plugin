@@ -7,9 +7,10 @@
 # Run this after ANY change to skills/, agents/, templates/, .mcp.json,
 # .claude-plugin/, or the top-level docs, and commit the regenerated bundle.
 #
-# Usage:  bash scripts/pack.sh          # rebuild adup.plugin
-#         bash scripts/pack.sh --check  # verify the committed bundle matches
-#                                       # the working tree (exit 1 if stale)
+# Usage:  bash scripts/pack.sh           # rebuild adup.plugin
+#         bash scripts/pack.sh --check   # verify the committed bundle matches
+#                                        # the working tree (exit 1 if stale)
+#         bash scripts/pack.sh --verify  # manifest sanity checks (exit 1 on fail)
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -17,7 +18,62 @@ cd "$ROOT"
 
 OUT="adup.plugin"
 CHECK=0
-[ "${1:-}" = "--check" ] && CHECK=1
+VERIFY=0
+case "${1:-}" in
+  --check)  CHECK=1 ;;
+  --verify) VERIFY=1 ;;
+  "")       ;;
+  *) echo "pack: unknown option '$1' (want --check or --verify)" >&2; exit 2 ;;
+esac
+
+# ── --verify: catch the failure mode --check cannot see ─────────────────────
+#
+# --check proves the bundle matches the TREE. It cannot tell you the tree is
+# mislabelled. A build uploaded to the desktop app was found in the wild
+# declaring version 1.0.0 while carrying 21 skills (1.0.0 shipped 8) — the
+# manifest version is not bumped when the bundle is rebuilt, so "1.0.0" said
+# nothing about what was inside. That is exactly why a stale plugin survived a
+# full QA cycle undetected on 2026-07-28: there was no signal to notice.
+#
+# That same build also shipped the REVERTED 9-connector .mcp.json, whose skills
+# call unprefixed tool names that do not exist on the aggregated /mcp
+# connector. One connector is the contract (see CLAUDE.md).
+if [ "$VERIFY" = "1" ]; then
+  fail=0
+  note() { echo "pack --verify: $*" >&2; fail=1; }
+
+  pv=$(python3 -c "import json;print(json.load(open('.claude-plugin/plugin.json'))['version'])")
+  mv=$(python3 -c "import json;print(json.load(open('.claude-plugin/marketplace.json'))['metadata']['version'])")
+  mpv=$(python3 -c "import json;d=json.load(open('.claude-plugin/marketplace.json'));print(d['plugins'][0]['version'])")
+
+  [ "$pv" = "$mv" ]  || note "plugin.json version ($pv) != marketplace metadata version ($mv)"
+  [ "$pv" = "$mpv" ] || note "plugin.json version ($pv) != marketplace plugins[0].version ($mpv)"
+
+  servers=$(python3 -c "import json;print(len(json.load(open('.mcp.json'))['mcpServers']))")
+  [ "$servers" = "1" ] || note ".mcp.json declares $servers servers — the contract is ONE aggregated connector"
+
+  key=$(python3 -c "
+import json
+h=json.load(open('.mcp.json'))['mcpServers'].get('adup',{}).get('headers',{})
+print(h.get('Authorization',''))")
+  case "$key" in
+    'Bearer ${ADUP_API_KEY}') ;;
+    *) note ".mcp.json Authorization must be 'Bearer \${ADUP_API_KEY}', not a literal key (got: ${key:0:24}…)" ;;
+  esac
+
+  # A version bump is required whenever the shipped tree changed. Compare
+  # against the last tag; skip cleanly when the repo has no tags yet.
+  if last_tag=$(git describe --tags --abbrev=0 2>/dev/null); then
+    tag_ver="${last_tag#v}"
+    if [ "$pv" = "$tag_ver" ] && ! git diff --quiet "$last_tag" -- \
+        skills agents templates .mcp.json .claude-plugin 2>/dev/null; then
+      note "shipped files changed since $last_tag but version is still $pv — bump it"
+    fi
+  fi
+
+  [ "$fail" = "0" ] && echo "pack --verify: manifests OK (v$pv, 1 connector)"
+  exit "$fail"
+fi
 
 # Everything the plugin needs at runtime. Deliberately EXCLUDES: .git, the
 # bundle itself, scripts/ (build tooling), and OS cruft.

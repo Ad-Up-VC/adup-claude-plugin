@@ -20,19 +20,23 @@ Reminder to surface when reporting: approved ads are created on the platform in 
 
 ## Step 2 — Query proposal statuses
 
-Query the ADUP gateway's actions surface with the employee key (same Bearer as the MCP connector). List per shop, paginated:
+Query central-api's **employee** proposals surface with the employee key (same Bearer as the MCP connector) — the same `ADUP_API_BASE` used for replication-requests below. List per shop, paginated:
 
 ```bash
 curl -s -H "Authorization: Bearer $ADUP_API_KEY" -H "Accept: application/json" \
-  "${ADUP_GATEWAY_BASE:-https://gateway.adup.io}/actions/<shop_slug>/proposals?per_page=100&page=1"
+  "${ADUP_API_BASE:-https://centralapi.adup.io}/api/v2/employee/tara/proposals?shop_slug=<shop_slug>&per_page=100&page=1"
 ```
 
-Page through until all pages are seen (the route also accepts `status`, `platform`, `category` filters). Match returned proposals to the ledger by proposal id. For any ledger id missing from the listing, fetch it directly:
+Page through until all pages are seen (the route also accepts `status`, `platform`, `category` and `batch_id` filters — `batch_id=<id>` pulls one whole launch in a single page). Match returned proposals to the ledger by proposal id. For any ledger id missing from the listing, fetch it directly:
 
 ```bash
 curl -s -H "Authorization: Bearer $ADUP_API_KEY" -H "Accept: application/json" \
-  "${ADUP_GATEWAY_BASE:-https://gateway.adup.io}/actions/<shop_slug>/proposals/<proposal_id>"
+  "${ADUP_API_BASE:-https://centralapi.adup.io}/api/v2/employee/tara/proposals/<proposal_id>"
 ```
+
+**Response shapes differ between the two — do not assume.** The list returns a Laravel paginator, so the rows are at `data.data[]`; the single-proposal GET returns `data.proposal`. A denial note is on `review_notes`.
+
+> Employee API keys (`emp_…`) authenticate against `/api/v2/employee/tara/…` only. The gateway also proxies these as `${ADUP_GATEWAY_BASE}/actions/<shop_slug>/proposals…`, but that proxy targeted central-api's **seller-JWT dashboard** routes until tara-gateway PR #90, so on any gateway older than that it answers `401 Unauthenticated.` Calling central-api directly works regardless of which gateway version is deployed, so prefer it here.
 
 Map platform statuses to workspace lifecycle statuses:
 

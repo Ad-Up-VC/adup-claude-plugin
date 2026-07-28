@@ -2,6 +2,8 @@
   "_meta": {
     "verified_at": "2026-07-03",
     "note": "Best-effort snapshot of publicly documented platform specs. Platforms change these regularly — re-verify against the official spec pages before trusting a borderline validation result. 'soft' text limits = display truncation guidance (warn); 'hard' = API/review rejection limits (error). min_px is [width, height] for the canonical orientation of each ratio. max_mb applies per file.",
+    "ratio_notation": {"1:1": "1x1", "4:5": "4x5", "9:16": "9x16", "16:9": "16x9", "1.91:1": "191x100"},
+    "ratio_notation_note": "central-api returns aspect_ratio in COLON form; inspect.sh and the per-platform specs below key on the x-form. Map server -> spec key through ratio_notation; any server value absent from it (e.g. 7:3) is other and has no valid placement.",
     "ratio_tokens": {
       "1x1": 1.0,
       "4x5": 0.8,

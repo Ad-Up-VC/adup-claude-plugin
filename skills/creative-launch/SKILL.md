@@ -39,7 +39,9 @@ For every referenced **local** media file, run:
 bash <plugin>/skills/creative-workspace/scripts/inspect.sh "<file>"
 ```
 
-The **detected** `aspect_label` / format / duration from inspect.sh (and, for already-uploaded or from-url assets, the server's extracted metadata in `state.json`) is the source of truth for every check below. Load `<plugin>/skills/creative-workspace/specs/platform-specs.json` and check, per ad x target platform:
+The **detected** `aspect_label` / format / duration from inspect.sh (and, for already-uploaded or from-url assets, the server's extracted metadata in `state.json`) is the source of truth for every check below. Load `<plugin>/skills/creative-workspace/specs/platform-specs.json` and check, per ad x target platform.
+
+**Translate the server's ratio before comparing it to a spec.** `state.json` stores the server's `aspect_ratio` in colon form (`4:5`), while the specs key on the x-form (`4x5`) — convert through `_meta.ratio_notation` in `platform-specs.json`. Comparing the raw strings silently matches nothing and would pass every placement check.
 
 - **Optional ratio-token hint**: if a filename contains a ratio token that matches detection, say nothing. If it **contradicts** detection, **detection wins** — show a WARN ("hero_4x5.jpg is actually 1080x1080 (1x1); launching as 1x1") and continue. This is never an error.
 - **Placement fit**: the group must contain at least one file whose **detected** ratio is accepted by the platform (e.g. TikTok in_feed wants 9x16; Meta feed wants 1x1/4x5). Files whose detected ratio a platform doesn't accept are simply filtered out for that platform — only an EMPTY result after filtering is an error.
