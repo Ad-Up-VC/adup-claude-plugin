@@ -5,6 +5,8 @@ description: Propose creating new Facebook ads within existing ad sets through t
 
 # Ad Creation
 
+> **Launching multiple ads, working from local creative files, or going cross-platform (Facebook + TikTok)?** Use the creative workspace skill family instead: `/adup:creative-workspace init` to set up a local workspace, `/adup:launch` to validate/upload/propose in bulk, `/adup:status` to sync approval state back, `/adup:creative-import` to import winners or spreadsheets. This skill remains the quick path for creating a **single ad into an existing ad set** conversationally.
+
 ## Pre-flight
 - Confirm shop context for agency accounts (use `set_active_shop` if not already set)
 - New ads are always created in **PAUSED** status — they must be manually activated after review
