@@ -28,8 +28,24 @@ Meta has native frequency data. The full 10-step algorithm applies.
 
 ### Data Retrieval
 
+**Start with the server-side detector.** `facebook__detect_ad_fatigue` computes this analysis
+upstream — prefer it over re-deriving fatigue from raw rows, which costs tokens and invites
+arithmetic slips:
+
 ```
-# Step 1: 3 days of daily ad-level data
+facebook__detect_ad_fatigue(
+  shop_slug="<slug>",
+  lookback_days=3,            # NOTE: lookback_days — NOT a time_range object
+  frequency_threshold=<n>,    # optional
+  min_impressions=<n>,        # optional
+)
+```
+
+Pull the raw rows as well when you need the per-day series behind the verdict, to explain a call,
+or when the detector returns nothing usable:
+
+```
+# 3 days of daily ad-level data — time_range is REQUIRED and is an object
 facebook__get_ad_insights(
   shop_slug="<slug>",
   time_range={"since": "D-3", "until": "D-1"},

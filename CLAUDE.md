@@ -110,9 +110,22 @@ On `initialize`, the plugin fetches `GET /api/v1/me/skills`. The response return
 Claude Code plugins are static SKILL.md directories. The plugin cannot register new skills at runtime. To support "the agency installs a skill in the portal and it appears in every employee's Claude," we use a sync-skills approach:
 
 1. `skills/sync-skills/SKILL.md` is a bootstrap skill that runs in Claude.
-2. It fetches `GET /api/v1/me/skills` from the Central API with the employee's API key.
-3. It writes each returned `content` (full SKILL.md text including frontmatter) to `~/.claude/skills/adup-org/{slug}/SKILL.md`.
-4. The employee restarts Claude. The synced skills are now available as `/adup-org:{slug}` commands.
+2. It fetches `GET /api/v1/me/skills` from `${ADUP_API_BASE:-https://centralapi.adup.io}` with the employee's API key. **Use the env override — a hardcoded prod host 401s for every dev/staging employee.**
+3. It writes each returned `content` (full SKILL.md text including frontmatter) to `~/.claude/skills/adup-{slug}/SKILL.md`.
+4. The employee restarts Claude Code. The synced skills are available as `/adup-{slug}`.
+
+**The layout is load-bearing — do not "tidy" it into a subdirectory.** Claude Code discovers a
+personal skill at `~/.claude/skills/<skill-name>/SKILL.md` (exactly one level) and **the directory
+name is the command**. There is no `group:name` syntax for personal skills — that namespacing is
+plugin-only. An earlier version wrote `~/.claude/skills/adup-org/{slug}/SKILL.md` and told users to
+run `/adup-org:{slug}`: two levels deep is never discovered, and that invocation form does not
+exist for personal skills, so nothing an agency published ever reached anyone. The flat
+`adup-<slug>` prefix keeps the namespace without nesting.
+
+**Surface limits (state these to the user, don't let them be discovered as a missing command):**
+synced skills work in Claude Code and in local desktop scheduled tasks. **Cowork sessions and
+cloud sessions/routines do not read `~/.claude/skills/` at all** — they load the skills enabled for
+the user's claude.ai account. So this mechanism cannot deliver an agency skill to Cowork.
 
 This is a Phase 4 stop-gap. If Claude Code adds runtime skill registration in the future, sync-skills becomes a no-op or a fallback.
 
