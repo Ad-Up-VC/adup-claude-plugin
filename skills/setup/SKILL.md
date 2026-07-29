@@ -28,7 +28,13 @@ except: print('settings.json: NOT_SET')
 "
 ```
 
-If either check returns a UUID (not `NOT_SET`), the key is already configured for this user. Tell the user and ask if they want to update it. If they say no, skip to **Step 4** (deploy tasks).
+If either check returns anything other than `NOT_SET`, the key is already configured for this
+user. Tell the user and ask if they want to update it. If they say no, skip to **Step 4** (deploy
+tasks).
+
+Current keys are **`emp_` + 40 characters**. If what you find is a bare UUID
+(`4ee0b75b-2690-…`), that is a **legacy** key from before per-employee keys: it will not
+authenticate, so treat it as unset and continue to Step 2 to collect the real one.
 
 ### 2. Ask for the API key
 
@@ -113,8 +119,12 @@ PYEOF
 ```bash
 PROFILE_FILE="$HOME/.zshrc"
 [ -f "$HOME/.bashrc" ] && PROFILE_FILE="$HOME/.bashrc"
+touch "$PROFILE_FILE"
 
-sed -i '' '/^export ADUP_API_KEY=/d' "$PROFILE_FILE" 2>/dev/null || true
+# `sed -i` takes a mandatory backup suffix on BSD/macOS and must NOT have one on
+# GNU/Linux, so the same invocation cannot work on both. Rewrite via a temp file
+# instead — portable, and it never leaves a stray `.bak` behind.
+grep -v '^export ADUP_API_KEY=' "$PROFILE_FILE" > "$PROFILE_FILE.tmp" && mv "$PROFILE_FILE.tmp" "$PROFILE_FILE"
 echo 'export ADUP_API_KEY="<KEY_FROM_USER>"' >> "$PROFILE_FILE"
 ```
 
@@ -178,6 +188,21 @@ Tell the user:
 
 ### 6. Deploy all scheduled tasks
 
+> **This step needs a scheduling tool that the ADUP plugin does not provide.**
+> `create_scheduled_task` comes from Claude's scheduled-tasks capability, not from the `adup`
+> connector — the ADUP connector serves only the six virtual tools plus `platform__tool` data
+> tools. **Check that a `create_scheduled_task` tool is actually available before starting this
+> step.** If it is not, do not fail the setup and do not fake it: everything through Step 5 is
+> already working, so tell the user
+>
+> > Your ADUP connection is set up and working. I could not deploy the 14 scheduled tasks because
+> > no task-scheduling tool is available in this session — scheduling is a Claude feature, not part
+> > of the ADUP plugin. You can run any of these on demand (e.g. `/adup:monday-briefing`), and
+> > re-run `/adup:setup` once scheduling is available to deploy them.
+>
+> then skip to Step 7. Cowork and cloud **routines** schedule differently — see
+> `/docs/en/routines`; the task prompts below are still the right content to schedule there.
+
 Now create all 14 scheduled tasks using the `create_scheduled_task` tool. Deploy them in this order (monitoring first, then optimization, then reporting).
 
 **Why every prompt below repeats the same shop-safety paragraph:** these tasks run on cron, often at overlapping times, and they all share ONE `ADUP_API_KEY`. `set_active_shop` sets a single *ambient* shop per API key — so if a task looped `set_active_shop` per client, a concurrently running task would clobber it mid-loop and the task could read (or propose changes against) the wrong client's account. The prompts therefore call `list_shops` once, use `set_active_shop` only to make platform tools discoverable, and pass `shop_slug="<slug>"` explicitly on every single data and proposal call. Keep that paragraph verbatim if you edit these prompts. Tool names in the prompts are namespaced `platform__tool` (`facebook__`, `google_ads__`, `ga4__`, `tiktok__`, `linkedin__`) — only the six virtual tools are unprefixed, and the Google Ads prefix is `google_ads__`, never `google__`.
@@ -196,7 +221,7 @@ create_scheduled_task(
   taskId: "adup-ad-fatigue",
   description: "Daily creative fatigue scan across all clients",
   cronExpression: "0 7 * * *",
-  prompt: "Run /adup:ad-fatigue for all clients. Call list_shops ONCE to get every shop's slug and connected_platforms. Call set_active_shop once up front only so the platform tools become discoverable (re-call it for a shop whose tools are not listed); NEVER rely on it for routing. For each shop, pass shop_slug=\"<slug>\" explicitly on EVERY data and proposal call — these scheduled runs share one API key and can run concurrently, so an ambient active shop set by one run clobbers another and a task can read or write the wrong client's data. Per shop: pull ad-level data with facebook__get_ad_insights(shop_slug=\"<slug>\", time_increment=1) for the last 3 days and check learning phase with facebook__get_adsets(shop_slug=\"<slug>\"). For HIGH fatigue ads (frequency >threshold AND CTR decline >20% OR CPA increase >25%), propose pause via facebook__propose_status_change(shop_slug=\"<slug>\"). For MEDIUM fatigue, propose 15-20% budget decrease on parent ad set via facebook__propose_budget_change(shop_slug=\"<slug>\"). For LOW fatigue, flag for monitoring only. Never propose changes to ads in Learning phase. Save summary."
+  prompt: "Run /adup:ad-fatigue for all clients. Call list_shops ONCE to get every shop's slug and connected_platforms. Call set_active_shop once up front only so the platform tools become discoverable (re-call it for a shop whose tools are not listed); NEVER rely on it for routing. For each shop, pass shop_slug=\"<slug>\" explicitly on EVERY data and proposal call — these scheduled runs share one API key and can run concurrently, so an ambient active shop set by one run clobbers another and a task can read or write the wrong client's data. Per shop: run facebook__detect_ad_fatigue(shop_slug=\"<slug>\", lookback_days=3) — it takes lookback_days, NOT a time_range object. If you need the underlying rows, facebook__get_ad_insights REQUIRES a time_range object: facebook__get_ad_insights(shop_slug=\"<slug>\", time_range={\"since\":\"YYYY-MM-DD\",\"until\":\"YYYY-MM-DD\"}, time_increment=1). Check learning phase with facebook__get_adsets(shop_slug=\"<slug>\"). For HIGH fatigue ads (frequency >threshold AND CTR decline >20% OR CPA increase >25%), propose pause via facebook__propose_status_change(shop_slug=\"<slug>\"). For MEDIUM fatigue, propose 15-20% budget decrease on parent ad set via facebook__propose_budget_change(shop_slug=\"<slug>\"). For LOW fatigue, flag for monitoring only. Never propose changes to ads in Learning phase. Save summary."
 )
 
 create_scheduled_task(

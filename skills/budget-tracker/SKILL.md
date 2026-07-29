@@ -13,11 +13,25 @@ description: Monitor budget pacing across Facebook Ads campaigns. Identifies ove
 
 ## Step 1 — Pull Pacing Data
 
-Call `facebook__get_campaign_performance_metrics` with:
-- `time_range`: `{"since": "YYYY-MM-DD", "until": "YYYY-MM-DD"}` for the current month
-- `shop_slug`: the shop slug, always passed explicitly
+**Start with the server-side pacing tool.** `facebook__get_budget_pacing` computes spend-vs-expected
+upstream, so prefer it over re-deriving pacing by hand:
 
-Cross-reference with `facebook__get_campaigns(shop_slug="<slug>")` to get daily budgets per campaign. Calculate pacing by comparing actual spend vs expected spend at this point in the month.
+```
+facebook__get_budget_pacing(shop_slug="<slug>", date_range="this_month")
+```
+
+`date_range` here is a **plain string** — `"this_month"`, `"last_30d"`, `"this_week"` — **not** the
+`{"since": …, "until": …}` object the insight tools take. Sibling Facebook tools disagree on this;
+check the schema rather than assuming.
+
+Fall back to computing it yourself when you need per-campaign detail the pacing tool doesn't
+return, or if it is unavailable:
+
+- `facebook__get_campaign_performance_metrics` with
+  `time_range`: `{"since": "YYYY-MM-DD", "until": "YYYY-MM-DD"}` for the current month, and
+  `shop_slug` always passed explicitly.
+- Cross-reference with `facebook__get_campaigns(shop_slug="<slug>")` to get daily budgets per
+  campaign, then compare actual spend vs expected spend at this point in the month.
 
 ---
 
