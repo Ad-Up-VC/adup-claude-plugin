@@ -6,7 +6,28 @@
 Single `adup` connector in `.mcp.json`. 26 bundled skill directories. 1 agent (`adup-analyst.md`). Chat-stream references in skills cleaned.
 
 ## .mcp.json — single aggregated connector
-ONE connector: `adup → https://gateway.adup.io/mcp` (auth `Authorization: Bearer ${ADUP_API_KEY}`).
+ONE connector: `adup → ${ADUP_GATEWAY_BASE:-https://gateway.adup.io}/mcp`
+(auth `Authorization: Bearer ${ADUP_API_KEY}`).
+
+### Environments — always set the pair, or neither
+Claude Code expands `${VAR:-default}` in an http server's `url` and `headers`, so the connector
+retargets by env var and production stays zero-config.
+
+| environment | `ADUP_GATEWAY_BASE` | `ADUP_API_BASE` |
+|---|---|---|
+| **production** (default) | *(unset)* | *(unset)* |
+| staging | `https://gateway-staging.adup.io` | `https://centralapi-staging.adup.io` |
+| dev | `https://gateway.kodeia.com` | `https://centralapi-dev.kodeia.com` |
+
+`ADUP_GATEWAY_BASE` moves the MCP connector; `ADUP_API_BASE` moves the direct HTTP calls the
+skills make (reports, proposals, creative assets, `/me/skills`). **Setting only one splits the
+plugin across two environments** — MCP tools answer from one and the report/proposal endpoints
+401 from the other, which reads as "some of it works". `pack.sh --verify` enforces that the
+connector url keeps the overridable form so a hardcoded host cannot ship again.
+
+⚠️ **A key belongs to exactly ONE environment.** A staging key against production returns
+`invalid_token` while being perfectly valid — check the environment before blaming the key.
+`gateway.kodeia.com` is **dev**, not staging (the kodeia.com domain is used by both).
 The gateway's base `/mcp` connector AGGREGATES every connected platform's tools for
 the active shop, namespaced `platform__tool` (e.g. `facebook__get_campaigns`,
 `google_ads__execute_google_ads_gaql_query`), plus the six unprefixed virtual tools (see
