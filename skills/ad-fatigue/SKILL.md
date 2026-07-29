@@ -35,11 +35,20 @@ arithmetic slips:
 ```
 facebook__detect_ad_fatigue(
   shop_slug="<slug>",
-  lookback_days=3,            # NOTE: lookback_days — NOT a time_range object
+  lookback_days=14,           # NOTE: lookback_days — NOT a time_range object
   frequency_threshold=<n>,    # optional
   min_impressions=<n>,        # optional
 )
 ```
+
+**`lookback_days` is the whole comparison span, not the recent window.** It is split in half:
+the most recent `lookback_days / 2` days are compared against the `lookback_days / 2` before
+them. So `14` means "last 7 days vs the 7 before" — the default, and the right starting point.
+Use a value of **at least 4**, and prefer an even one so the two halves are equal.
+
+Do not ask for a tiny span hoping to see "just the last few days": the comparison needs a
+baseline, so `lookback_days=2` collapses to one day against one day and is far too noisy to act
+on.
 
 Pull the raw rows as well when you need the per-day series behind the verdict, to explain a call,
 or when the detector returns nothing usable:
