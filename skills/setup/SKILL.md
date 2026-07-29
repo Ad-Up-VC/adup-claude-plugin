@@ -57,12 +57,24 @@ production in Step 4 (a key is issued by ONE environment and authenticates again
 
 | environment | `ADUP_GATEWAY_BASE` | `ADUP_API_BASE` |
 |---|---|---|
-| **production** (default) | *(unset)* | *(unset)* |
+| **production** (default) | `https://gateway.adup.io` | `https://centralapi.adup.io` |
 | staging | `https://gateway-staging.adup.io` | `https://centralapi-staging.adup.io` |
 | dev | `https://gateway.kodeia.com` | `https://centralapi-dev.kodeia.com` |
 
-Leaving both **unset** on production is deliberate — `.mcp.json` and every skill already default
-to the production hosts, so a normal install needs no extra configuration.
+**Set the production pair explicitly** — do not rely on leaving it unset. Both resolve to exactly
+the same hosts (`.mcp.json` and every skill already default to production, and setting the value
+that equals the default is a no-op), so this costs nothing. What it buys:
+
+- **Switching back from staging or dev is an overwrite, not a delete.** The overrides live in three
+  places — a LaunchAgent plist, `~/.claude/settings.json` and the shell profile — and *removing* a
+  value from all three is far easier to get half-right than *replacing* it. A single leftover
+  `ADUP_GATEWAY_BASE=…kodeia.com` points the connector at dev while everything else says
+  production, which presents as "my key stopped working".
+- **`echo $ADUP_GATEWAY_BASE` answers "which environment am I on?"** An empty result is ambiguous —
+  it could mean production, or it could mean the variable never got set on this surface.
+
+An existing install with nothing set stays on production and keeps working; this is about what
+setup writes from now on.
 
 **The two must always be set as a pair.** The gateway serves the MCP tools; central-api serves
 the report/proposal/creative-asset endpoints the skills call directly. A mismatched pair
@@ -73,19 +85,25 @@ work and some don't" and is painful to diagnose.
 
 Save the settings using **three methods** so they work across all Claude surfaces (Cowork desktop app, Claude Code CLI, terminal). Run all three blocks.
 
-**What to save.** Always `ADUP_API_KEY`. Add `ADUP_GATEWAY_BASE` and `ADUP_API_BASE` **only** for a
-non-production environment (Step 2b) — on production they stay unset so the built-in defaults
-apply. Set `ADUP_VARS` once here and every block below reads it:
+**What to save.** `ADUP_API_KEY` plus the `ADUP_GATEWAY_BASE` + `ADUP_API_BASE` pair for the
+environment chosen in Step 2b — **always both hosts, including on production**. Set `ADUP_VARS`
+once here and every block below reads it.
+
+`ADUP_VARS` is an **array**, and every block below iterates it as `"${ADUP_VARS[@]}"`. That is not
+stylistic: macOS defaults to **zsh**, which does *not* word-split an unquoted `$VAR`, so a
+space-separated string would arrive as ONE argument and setup would write a single `ADUP_API_KEY`
+whose value is the key with both host assignments glued onto it. An array iterates identically in
+bash and zsh.
 
 ```bash
 API_KEY="<KEY_FROM_USER>"
 
-# Production (the default): key only.
-ADUP_VARS="ADUP_API_KEY=$API_KEY"
+# Production — the default. Keep this line unless Step 2b said otherwise.
+ADUP_VARS=("ADUP_API_KEY=$API_KEY" "ADUP_GATEWAY_BASE=https://gateway.adup.io" "ADUP_API_BASE=https://centralapi.adup.io")
 
-# Staging / dev — UNCOMMENT ONE, matching Step 2b. Both hosts or neither.
-# ADUP_VARS="$ADUP_VARS ADUP_GATEWAY_BASE=https://gateway-staging.adup.io ADUP_API_BASE=https://centralapi-staging.adup.io"
-# ADUP_VARS="$ADUP_VARS ADUP_GATEWAY_BASE=https://gateway.kodeia.com ADUP_API_BASE=https://centralapi-dev.kodeia.com"
+# Staging / dev — REPLACE the line above with ONE of these, matching Step 2b.
+# ADUP_VARS=("ADUP_API_KEY=$API_KEY" "ADUP_GATEWAY_BASE=https://gateway-staging.adup.io" "ADUP_API_BASE=https://centralapi-staging.adup.io")
+# ADUP_VARS=("ADUP_API_KEY=$API_KEY" "ADUP_GATEWAY_BASE=https://gateway.kodeia.com" "ADUP_API_BASE=https://centralapi-dev.kodeia.com")
 ```
 
 #### 3a. macOS LaunchAgent — the critical one for desktop apps
@@ -107,7 +125,7 @@ for OLD in "$LAUNCH_AGENTS_DIR"/io.adup.env.*.plist; do
   rm -f "$OLD"
 done
 
-for PAIR in $ADUP_VARS; do
+for PAIR in "${ADUP_VARS[@]}"; do
   VAR="${PAIR%%=*}"; VAL="${PAIR#*=}"
   PLIST_FILE="$LAUNCH_AGENTS_DIR/io.adup.env.$VAR.plist"
   cat > "$PLIST_FILE" <<PLIST
@@ -138,7 +156,7 @@ done
 
 ```bash
 mkdir -p "$HOME/.claude"
-python3 - "$HOME/.claude/settings.json" $ADUP_VARS <<'PYEOF'
+python3 - "$HOME/.claude/settings.json" "${ADUP_VARS[@]}" <<'PYEOF'
 import json, sys
 
 settings_path = sys.argv[1]
@@ -175,7 +193,7 @@ touch "$PROFILE_FILE"
 # exports so switching environments cannot leave a stale host behind.
 grep -vE '^export (ADUP_API_KEY|ADUP_GATEWAY_BASE|ADUP_API_BASE)=' "$PROFILE_FILE" \
   > "$PROFILE_FILE.tmp" && mv "$PROFILE_FILE.tmp" "$PROFILE_FILE"
-for PAIR in $ADUP_VARS; do
+for PAIR in "${ADUP_VARS[@]}"; do
   echo "export ${PAIR%%=*}=\"${PAIR#*=}\"" >> "$PROFILE_FILE"
 done
 ```

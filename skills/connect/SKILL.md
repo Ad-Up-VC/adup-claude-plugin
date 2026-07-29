@@ -15,9 +15,12 @@ pointed at the wrong environment.
 
 | `ADUP_GATEWAY_BASE` | environment |
 |---|---|
-| unset | **production** |
+| `https://gateway.adup.io` *(or unset)* | **production** |
 | `https://gateway-staging.adup.io` | staging |
 | `https://gateway.kodeia.com` | dev |
+
+Setup writes the production pair explicitly, but an older install may have nothing set — that
+also means production, because the built-in defaults are the production hosts.
 
 ```bash
 echo "gateway:     ${ADUP_GATEWAY_BASE:-https://gateway.adup.io  (production default)}"

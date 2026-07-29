@@ -11,11 +11,13 @@ ONE connector: `adup → ${ADUP_GATEWAY_BASE:-https://gateway.adup.io}/mcp`
 
 ### Environments — always set the pair, or neither
 Claude Code expands `${VAR:-default}` in an http server's `url` and `headers`, so the connector
-retargets by env var and production stays zero-config.
+retargets by env var; the built-in defaults ARE production, so an install with nothing set
+still works. Setup writes the production pair explicitly anyway — switching back from staging or
+dev then overwrites rather than having to delete an override from three separate places.
 
 | environment | `ADUP_GATEWAY_BASE` | `ADUP_API_BASE` |
 |---|---|---|
-| **production** (default) | *(unset)* | *(unset)* |
+| **production** (default) | `https://gateway.adup.io` | `https://centralapi.adup.io` |
 | staging | `https://gateway-staging.adup.io` | `https://centralapi-staging.adup.io` |
 | dev | `https://gateway.kodeia.com` | `https://centralapi-dev.kodeia.com` |
 

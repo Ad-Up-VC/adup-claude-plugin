@@ -51,10 +51,22 @@ key, set **both** hosts (the gateway serves the MCP tools, central-api serves re
 and proposals — a mismatched pair leaves half the plugin 401ing):
 
 ```bash
+# production (the default — the built-in values, set explicitly)
+export ADUP_GATEWAY_BASE=https://gateway.adup.io
+export ADUP_API_BASE=https://centralapi.adup.io
+
 # staging
 export ADUP_GATEWAY_BASE=https://gateway-staging.adup.io
 export ADUP_API_BASE=https://centralapi-staging.adup.io
+
+# dev
+export ADUP_GATEWAY_BASE=https://gateway.kodeia.com
+export ADUP_API_BASE=https://centralapi-dev.kodeia.com
 ```
+
+Always set **both** — the gateway serves the MCP tools, central-api serves the report,
+proposal and creative-asset endpoints the skills call directly. One without the other splits
+the plugin across two environments.
 
 A key belongs to exactly one environment: a staging key used against production returns
 `invalid_token` even though it is valid. `/adup:connect` reports which environment you
