@@ -39,6 +39,7 @@ acme-nl/                              ← workspace root = ONE shop (agency: sib
 ```
 
 - **Detection first — name files ANYTHING.** Each file's ratio (`1x1`, `4x5`, `9x16`, `16x9`, `191x100`) and format (image/video) are determined from its **actual pixels and duration**: locally via `scripts/inspect.sh`, and authoritatively from the server's extracted metadata after upload. The filename is never the source of truth.
+- **The server and the specs use DIFFERENT ratio notation — translate, never compare raw.** `inspect.sh` and `specs/platform-specs.json` both key on `1x1` / `4x5` / `9x16` / `16x9` / `191x100`; the upload response's `aspect_ratio` is colon-form (`1:1`, `4:5`, `9:16`, `16:9`, `1.91:1`). A literal comparison of `4:5` against `4x5` never matches. Use the `_meta.ratio_notation` map in `specs/platform-specs.json` to convert server → spec key. Anything the server returns that is not in that map (e.g. `7:3` for a 700x300 file) is `other` — no placement on any platform accepts it.
 - **Creative groups** (one group → one multi-placement ad) are formed in this order:
   1. An ad.md's `creative:` field lists **explicit files** or a **folder** — that IS the group.
   2. Otherwise, files in the same `assets/` subfolder group by **stem similarity**: strip extensions, separators (`-`, `_`, spaces), and resolution/ratio suffixes (`1080x1080`, `9x16`, `story`, `square`, …), then cluster near-identical stems (`Hero Final.jpg` + `hero-final-story.mp4` → one group).
