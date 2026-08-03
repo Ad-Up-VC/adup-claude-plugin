@@ -1,0 +1,11 @@
+{
+  "name": "adup-staging",
+  "description": "ADUP against the STAGING environment \u2014 same skills as the production `adup` plugin, pointed at gateway-staging.adup.io and centralapi-staging.adup.io. For ADUP staff testing before a release. Needs a STAGING employee key in ADUP_STAGING_API_KEY; a production key will not authenticate.",
+  "version": "1.5.0",
+  "author": {
+    "name": "ADUP",
+    "email": "info@adup.io"
+  },
+  "homepage": "https://tara.adup.io",
+  "repository": "https://github.com/Ad-Up-VC/adup-claude-plugin"
+}
