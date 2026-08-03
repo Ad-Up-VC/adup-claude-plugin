@@ -37,12 +37,40 @@ The plugin ships **one** MCP connector, `adup`:
 | | |
 |---|---|
 | Name | `adup` |
-| URL | `https://gateway.adup.io/mcp` |
+| URL | `${ADUP_GATEWAY_BASE:-https://gateway.adup.io}/mcp` |
 | Auth | `Authorization: Bearer ${ADUP_API_KEY}` |
 
 That single connector aggregates every platform your shop has connected — there are
 no per-platform connectors to add. `/adup:setup` writes `ADUP_API_KEY` for you; if
 you set it by hand, `export ADUP_API_KEY=your_key_here` and restart Claude Code.
+
+#### Non-production environments
+
+Production needs no configuration — the defaults point at it. To use a staging or dev
+key, set **both** hosts (the gateway serves the MCP tools, central-api serves reports
+and proposals — a mismatched pair leaves half the plugin 401ing):
+
+```bash
+# production (the default — the built-in values, set explicitly)
+export ADUP_GATEWAY_BASE=https://gateway.adup.io
+export ADUP_API_BASE=https://centralapi.adup.io
+
+# staging
+export ADUP_GATEWAY_BASE=https://gateway-staging.adup.io
+export ADUP_API_BASE=https://centralapi-staging.adup.io
+
+# dev
+export ADUP_GATEWAY_BASE=https://gateway.kodeia.com
+export ADUP_API_BASE=https://centralapi-dev.kodeia.com
+```
+
+Always set **both** — the gateway serves the MCP tools, central-api serves the report,
+proposal and creative-asset endpoints the skills call directly. One without the other splits
+the plugin across two environments.
+
+A key belongs to exactly one environment: a staging key used against production returns
+`invalid_token` even though it is valid. `/adup:connect` reports which environment you
+are currently pointed at.
 
 ### Choosing which client you're working on
 

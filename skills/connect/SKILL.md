@@ -7,6 +7,30 @@ description: Connect your ADUP account and verify which platforms are active. Ru
 
 Verify the ADUP connection, show the user their role and accessible shops, and confirm which platforms are connected per shop.
 
+## Which environment am I on?
+
+Report it alongside the role and shops — a user who cannot tell production from staging cannot
+interpret anything else the skill says, and "my key stopped working" is nearly always a key
+pointed at the wrong environment.
+
+| `ADUP_GATEWAY_BASE` | environment |
+|---|---|
+| `https://gateway.adup.io` *(or unset)* | **production** |
+| `https://gateway-staging.adup.io` | staging |
+| `https://gateway.kodeia.com` | dev |
+
+Setup writes the production pair explicitly, but an older install may have nothing set — that
+also means production, because the built-in defaults are the production hosts.
+
+```bash
+echo "gateway:     ${ADUP_GATEWAY_BASE:-https://gateway.adup.io  (production default)}"
+echo "central-api: ${ADUP_API_BASE:-https://centralapi.adup.io  (production default)}"
+```
+
+**Flag a mismatched pair as a problem**, not a detail: one host overridden and the other not means
+MCP tool calls and the report/proposal endpoints are talking to different environments, so part of
+the plugin works and part 401s. Both, or neither.
+
 ## Steps
 
 1. Call `list_shops` on the `adup` base connector. The gateway resolves your identity via Central API `/api/v1/me`, returning:
@@ -83,8 +107,16 @@ every data call (the active shop is shared per API key and parallel runs race).
 If `list_shops` fails with an auth error:
 "The ADUP connection needs authentication. Set your personal API key: `export ADUP_API_KEY=your_key_here`, then restart Claude Code. If you don't have a key, ask your agency owner to invite you in the portal."
 
+If the key IS set and still rejected, suspect the **environment** before the key. A key is issued
+by one environment and authenticates only against that one, so a staging or dev key hits production
+by default and returns `invalid_token` while being perfectly valid. Run `/adup:setup` and pick the
+matching environment at Step 2b.
+
 If the MCP server itself is unreachable (connection refused or timeout):
-"Cannot reach the ADUP gateway at https://gateway.adup.io/mcp. Check that your ADUP_API_KEY is set correctly and the service is running."
+"Cannot reach the ADUP gateway at `${ADUP_GATEWAY_BASE:-https://gateway.adup.io}/mcp`. Check that your ADUP_API_KEY is set correctly and the service is running."
+
+Report the **resolved** host, not the production default — if `ADUP_GATEWAY_BASE` is set, an
+unreachable-host message naming `gateway.adup.io` sends the user to debug the wrong server.
 
 If no shops are returned (empty `accessible_shops`):
 "Your ADUP account is connected, but no shops have been assigned to you yet. Ask your agency owner to assign you to a client in the portal Team page."

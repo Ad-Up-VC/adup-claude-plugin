@@ -61,6 +61,19 @@ print(h.get('Authorization',''))")
     *) note ".mcp.json Authorization must be 'Bearer \${ADUP_API_KEY}', not a literal key (got: ${key:0:24}…)" ;;
   esac
 
+  # The connector URL must stay environment-overridable. A hardcoded host pins
+  # every install to production and is why there was no way to point the plugin
+  # at dev or staging without hand-editing the shipped file. Claude Code expands
+  # ${VAR:-default} in an http server's `url`, so the default keeps production
+  # zero-config while ADUP_GATEWAY_BASE retargets it.
+  url=$(python3 -c "
+import json
+print(json.load(open('.mcp.json'))['mcpServers'].get('adup',{}).get('url',''))")
+  case "$url" in
+    '${ADUP_GATEWAY_BASE:-https://gateway.adup.io}/mcp') ;;
+    *) note ".mcp.json url must be '\${ADUP_GATEWAY_BASE:-https://gateway.adup.io}/mcp' (got: $url)" ;;
+  esac
+
   # A version bump is required whenever the shipped tree changed. Compare
   # against the last tag; skip cleanly when the repo has no tags yet.
   if last_tag=$(git describe --tags --abbrev=0 2>/dev/null); then

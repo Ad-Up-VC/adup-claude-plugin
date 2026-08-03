@@ -49,56 +49,118 @@ Tell the user:
 
 Wait for them to paste the key. Keys start with `emp_` followed by a 40-character random string (e.g., `emp_a1b2c3d4...`).
 
+### 2b. Environment — production unless the user says otherwise
+
+**Almost everyone is on production. Do not ask.** Only pick another environment when the user
+explicitly says they are on staging or dev, or when their key fails to authenticate against
+production in Step 4 (a key is issued by ONE environment and authenticates against that one only).
+
+| environment | `ADUP_GATEWAY_BASE` | `ADUP_API_BASE` |
+|---|---|---|
+| **production** (default) | `https://gateway.adup.io` | `https://centralapi.adup.io` |
+| staging | `https://gateway-staging.adup.io` | `https://centralapi-staging.adup.io` |
+| dev | `https://gateway.kodeia.com` | `https://centralapi-dev.kodeia.com` |
+
+**Set the production pair explicitly** — do not rely on leaving it unset. Both resolve to exactly
+the same hosts (`.mcp.json` and every skill already default to production, and setting the value
+that equals the default is a no-op), so this costs nothing. What it buys:
+
+- **Switching back from staging or dev is an overwrite, not a delete.** The overrides live in three
+  places — a LaunchAgent plist, `~/.claude/settings.json` and the shell profile — and *removing* a
+  value from all three is far easier to get half-right than *replacing* it. A single leftover
+  `ADUP_GATEWAY_BASE=…kodeia.com` points the connector at dev while everything else says
+  production, which presents as "my key stopped working".
+- **`echo $ADUP_GATEWAY_BASE` answers "which environment am I on?"** An empty result is ambiguous —
+  it could mean production, or it could mean the variable never got set on this surface.
+
+An existing install with nothing set stays on production and keeps working; this is about what
+setup writes from now on.
+
+**The two must always be set as a pair.** The gateway serves the MCP tools; central-api serves
+the report/proposal/creative-asset endpoints the skills call directly. A mismatched pair
+authenticates against one environment and 401s against the other, which reads as "some things
+work and some don't" and is painful to diagnose.
+
 ### 3. Save the key
 
-Once the user provides the key, save it using **three methods** so it works across all Claude surfaces (Cowork desktop app, Claude Code CLI, terminal). Run all three blocks:
+Save the settings using **three methods** so they work across all Claude surfaces (Cowork desktop app, Claude Code CLI, terminal). Run all three blocks.
+
+**What to save.** `ADUP_API_KEY` plus the `ADUP_GATEWAY_BASE` + `ADUP_API_BASE` pair for the
+environment chosen in Step 2b — **always both hosts, including on production**. Set `ADUP_VARS`
+once here and every block below reads it.
+
+`ADUP_VARS` is an **array**, and every block below iterates it as `"${ADUP_VARS[@]}"`. That is not
+stylistic: macOS defaults to **zsh**, which does *not* word-split an unquoted `$VAR`, so a
+space-separated string would arrive as ONE argument and setup would write a single `ADUP_API_KEY`
+whose value is the key with both host assignments glued onto it. An array iterates identically in
+bash and zsh.
+
+```bash
+API_KEY="<KEY_FROM_USER>"
+
+# Production — the default. Keep this line unless Step 2b said otherwise.
+ADUP_VARS=("ADUP_API_KEY=$API_KEY" "ADUP_GATEWAY_BASE=https://gateway.adup.io" "ADUP_API_BASE=https://centralapi.adup.io")
+
+# Staging / dev — REPLACE the line above with ONE of these, matching Step 2b.
+# ADUP_VARS=("ADUP_API_KEY=$API_KEY" "ADUP_GATEWAY_BASE=https://gateway-staging.adup.io" "ADUP_API_BASE=https://centralapi-staging.adup.io")
+# ADUP_VARS=("ADUP_API_KEY=$API_KEY" "ADUP_GATEWAY_BASE=https://gateway.kodeia.com" "ADUP_API_BASE=https://centralapi-dev.kodeia.com")
+```
 
 #### 3a. macOS LaunchAgent — the critical one for desktop apps
 
-On macOS, GUI apps like Cowork do NOT source shell profiles. The only way to expose an env var to a desktop app is via `launchctl`. A `~/Library/LaunchAgents/` plist is per-macOS-user (each user has their own `~/Library/`) and survives reboots.
+On macOS, GUI apps like Cowork do NOT source shell profiles. The only way to expose an env var to a desktop app is via `launchctl`. A `~/Library/LaunchAgents/` plist is per-macOS-user (each user has their own `~/Library/`) and survives reboots. One plist per variable.
 
 ```bash
 LAUNCH_AGENTS_DIR="$HOME/Library/LaunchAgents"
-PLIST_FILE="$LAUNCH_AGENTS_DIR/io.adup.env.ADUP_API_KEY.plist"
-API_KEY="<KEY_FROM_USER>"
-
 mkdir -p "$LAUNCH_AGENTS_DIR"
 
-cat > "$PLIST_FILE" <<PLIST
+# Clear any plist from a previous run so switching environments does not leave a
+# stale ADUP_GATEWAY_BASE behind — that is the failure that looks like "my key
+# stopped working" when it is really pointing at the wrong environment.
+for OLD in "$LAUNCH_AGENTS_DIR"/io.adup.env.*.plist; do
+  [ -e "$OLD" ] || continue
+  VAR_OLD="$(basename "$OLD" .plist)"; VAR_OLD="${VAR_OLD#io.adup.env.}"
+  launchctl unload "$OLD" 2>/dev/null || true
+  launchctl unsetenv "$VAR_OLD" 2>/dev/null || true
+  rm -f "$OLD"
+done
+
+for PAIR in "${ADUP_VARS[@]}"; do
+  VAR="${PAIR%%=*}"; VAL="${PAIR#*=}"
+  PLIST_FILE="$LAUNCH_AGENTS_DIR/io.adup.env.$VAR.plist"
+  cat > "$PLIST_FILE" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
     <key>Label</key>
-    <string>io.adup.env.ADUP_API_KEY</string>
+    <string>io.adup.env.$VAR</string>
     <key>ProgramArguments</key>
     <array>
         <string>launchctl</string>
         <string>setenv</string>
-        <string>ADUP_API_KEY</string>
-        <string>${API_KEY}</string>
+        <string>$VAR</string>
+        <string>$VAL</string>
     </array>
     <key>RunAtLoad</key>
     <true/>
 </dict>
 </plist>
 PLIST
-
-# Unload any old version, load the new one, and set immediately for this session
-launchctl unload "$PLIST_FILE" 2>/dev/null || true
-launchctl load "$PLIST_FILE"
-launchctl setenv ADUP_API_KEY "$API_KEY"
+  launchctl load "$PLIST_FILE"
+  launchctl setenv "$VAR" "$VAL"   # also set immediately for this session
+done
 ```
 
 #### 3b. Claude Code CLI settings
 
 ```bash
 mkdir -p "$HOME/.claude"
-python3 - "$HOME/.claude/settings.json" "<KEY_FROM_USER>" <<'PYEOF'
+python3 - "$HOME/.claude/settings.json" "${ADUP_VARS[@]}" <<'PYEOF'
 import json, sys
 
 settings_path = sys.argv[1]
-api_key = sys.argv[2]
+pairs = dict(a.split("=", 1) for a in sys.argv[2:])
 
 try:
     with open(settings_path, "r") as f:
@@ -106,8 +168,12 @@ try:
 except (FileNotFoundError, json.JSONDecodeError):
     settings = {}
 
-settings.setdefault("env", {})
-settings["env"]["ADUP_API_KEY"] = api_key
+env = settings.setdefault("env", {})
+# Drop any ADUP_* host overrides from a previous run before applying the new
+# set, so switching back to production actually clears them.
+for stale in ("ADUP_GATEWAY_BASE", "ADUP_API_BASE"):
+    env.pop(stale, None)
+env.update(pairs)
 
 with open(settings_path, "w") as f:
     json.dump(settings, f, indent=2)
@@ -123,14 +189,18 @@ touch "$PROFILE_FILE"
 
 # `sed -i` takes a mandatory backup suffix on BSD/macOS and must NOT have one on
 # GNU/Linux, so the same invocation cannot work on both. Rewrite via a temp file
-# instead — portable, and it never leaves a stray `.bak` behind.
-grep -v '^export ADUP_API_KEY=' "$PROFILE_FILE" > "$PROFILE_FILE.tmp" && mv "$PROFILE_FILE.tmp" "$PROFILE_FILE"
-echo 'export ADUP_API_KEY="<KEY_FROM_USER>"' >> "$PROFILE_FILE"
+# instead — portable, and it never leaves a stray `.bak` behind. Strip ALL ADUP_*
+# exports so switching environments cannot leave a stale host behind.
+grep -vE '^export (ADUP_API_KEY|ADUP_GATEWAY_BASE|ADUP_API_BASE)=' "$PROFILE_FILE" \
+  > "$PROFILE_FILE.tmp" && mv "$PROFILE_FILE.tmp" "$PROFILE_FILE"
+for PAIR in "${ADUP_VARS[@]}"; do
+  echo "export ${PAIR%%=*}=\"${PAIR#*=}\"" >> "$PROFILE_FILE"
+done
 ```
 
-Tell the user:
-> API key saved in three places so it works everywhere for your Mac user account.
-> **Restart Cowork (or Claude Code) once** to pick up the new environment variable. Then run `/adup:connect` to verify.
+Tell the user (name the environment if it is not production):
+> Settings saved in three places so they work everywhere for your Mac user account.
+> **Restart Cowork (or Claude Code) once** to pick up the new environment variables. Then run `/adup:connect` to verify.
 >
 > Other macOS users on this machine will need to run setup separately with their own API key — your key is stored in your personal `~/Library/` folder and is not visible to other users.
 
@@ -158,8 +228,27 @@ If your role is `read_only`, mention that you can only read data — you can sti
 
 If your role is `analyst`, mention that any change you propose will always go to `pending_review` and require a manager/team_lead/owner to approve.
 
-If it fails with an auth error:
-> The key doesn't seem to be valid. Ask your agency owner to verify your invitation in the portal Team page, or to regenerate your key.
+If it fails with an auth error (`invalid_token` / 401), there are **two** likely causes — check the
+second before sending the user back to their agency owner:
+
+1. **Wrong environment.** A key is issued by ONE environment and authenticates only against that
+   one. A staging or dev key hits production by default and returns `invalid_token` even though it
+   is perfectly valid. If the user got their key from a non-production portal, go back to Step 2b,
+   set the matching `ADUP_GATEWAY_BASE` + `ADUP_API_BASE` pair, re-run Step 3 and retry.
+2. **The key really is invalid:**
+   > The key doesn't seem to be valid. Ask your agency owner to verify your invitation in the portal Team page, or to regenerate your key.
+
+To tell them apart, try the key directly against each environment's central-api — exactly one
+should return 200:
+
+```bash
+for BASE in https://centralapi.adup.io https://centralapi-staging.adup.io https://centralapi-dev.kodeia.com; do
+  printf '%-40s ' "$BASE"
+  curl -s -o /dev/null -w '%{http_code}\n' "$BASE/api/v1/me" -H "Authorization: Bearer $ADUP_API_KEY"
+done
+```
+
+A 200 names the environment the key belongs to; all-401 means the key itself is bad.
 
 **If successful, proceed to Step 5.**
 
