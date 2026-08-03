@@ -7,7 +7,7 @@
 # Run this after ANY change to skills/, agents/, templates/, .mcp.json,
 # .claude-plugin/, or the top-level docs, and commit the regenerated bundle.
 #
-# It ALSO builds adup-staging.plugin — the internal staging variant, GENERATED
+# It ALSO builds adup-staging.plugin + ./adup-staging/ — the staging variant, GENERATED
 # from this same tree by scripts/make-staging.sh (never hand-maintained; see the
 # rationale in that file). Both bundles are committed.
 #
@@ -156,9 +156,20 @@ print(json.load(open('.mcp.json'))['mcpServers'].get('adup',{}).get('url',''))")
   sver=$(python3 -c "import json;print(json.load(open('$STG_TMP/pkg/.claude-plugin/plugin.json'))['version'])")
   [ "$sver" = "$pv" ] || note "staging version ($sver) != production version ($pv) — they are the same code"
 
-  # Internal-only: the staging tree must advertise nothing for discovery.
-  slisted=$(python3 -c "import json;print(len(json.load(open('$STG_TMP/pkg/.claude-plugin/marketplace.json'))['plugins']))" 2>/dev/null || echo 0)
-  [ "$slisted" = "0" ] || note "staging marketplace lists $slisted plugin(s) — the staging variant is INTERNAL, distribute the bundle only"
+  # A plugin SOURCE DIR must not carry a marketplace.json — the root marketplace
+  # already lists this plugin, and a nested copy is a second marketplace.
+  [ ! -f "$STG_TMP/pkg/.claude-plugin/marketplace.json" ] \
+    || note "staging tree contains .claude-plugin/marketplace.json — a plugin source dir must not"
+
+  # The root marketplace must list BOTH plugins, and staging must resolve to the
+  # committed generated tree (that is what makes it installable like production).
+  python3 - <<'PY' || note "root marketplace does not list adup + adup-staging correctly"
+import json, sys
+d = json.load(open('.claude-plugin/marketplace.json'))
+by = {p['name']: p for p in d['plugins']}
+sys.exit(0 if by.get('adup', {}).get('source') == './'
+         and by.get('adup-staging', {}).get('source') == './adup-staging' else 1)
+PY
 
   # Parity: the variant must be a substitution of production, not a fork.
   pskills=$(ls skills | wc -l | tr -d ' ')
@@ -193,6 +204,13 @@ SSTAGE="$TMP/pkg-staging"
 bash scripts/make-staging.sh "$STAGE" "$SSTAGE" >/dev/null
 ( cd "$SSTAGE" && find . -type f | LC_ALL=C sort | zip -qX "$TMP/out-staging.zip" -@ )
 
+# The generated tree is ALSO committed at ./adup-staging so the root
+# marketplace can resolve `"source": "./adup-staging"` — that is what makes the
+# staging plugin installable the same way production is, rather than
+# hand-unpacked from a bundle. It is generated output: never hand-edit it,
+# `--check` fails if it drifts from what make-staging.sh produces.
+STAGING_DIR="adup-staging"
+
 if [ "$CHECK" = "1" ]; then
   if [ ! -f "$OUT" ]; then
     echo "pack --check: $OUT does not exist (run: bash scripts/pack.sh)" >&2
@@ -221,12 +239,19 @@ PY
     echo "pack --check: $OUT is STALE — regenerate with: bash scripts/pack.sh" >&2; stale=1; }
   [ "$(hash_zip "$STAGING_OUT")" = "$(hash_zip "$TMP/out-staging.zip")" ] || {
     echo "pack --check: $STAGING_OUT is STALE — regenerate with: bash scripts/pack.sh" >&2; stale=1; }
-  [ "$stale" = "0" ] && echo "pack --check: $OUT and $STAGING_OUT are up to date"
+  # The committed source dir must match too — it is what the marketplace installs.
+  if ! diff -rq "$SSTAGE" "$STAGING_DIR" >/dev/null 2>&1; then
+    echo "pack --check: ./$STAGING_DIR is STALE or hand-edited — regenerate with: bash scripts/pack.sh" >&2
+    diff -rq "$SSTAGE" "$STAGING_DIR" 2>&1 | head -5 | sed 's/^/    /' >&2
+    stale=1
+  fi
+  [ "$stale" = "0" ] && echo "pack --check: $OUT, $STAGING_OUT and ./$STAGING_DIR are up to date"
   exit "$stale"
 fi
 
 mv "$TMP/out.zip" "$OUT"
 mv "$TMP/out-staging.zip" "$STAGING_OUT"
+rm -rf "$STAGING_DIR" && cp -R "$SSTAGE" "$STAGING_DIR"
 count_zip() { python3 -c "import zipfile;print(len([n for n in zipfile.ZipFile('$1').namelist() if not n.endswith('/')]))"; }
 echo "pack: wrote $OUT ($(count_zip "$OUT") files)"
-echo "pack: wrote $STAGING_OUT ($(count_zip "$STAGING_OUT") files, internal staging variant)"
+echo "pack: wrote $STAGING_OUT ($(count_zip "$STAGING_OUT") files, staging variant)"

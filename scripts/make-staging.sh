@@ -58,26 +58,19 @@ p = dest / ".claude-plugin" / "plugin.json"
 d = json.loads(p.read_text())
 d["name"] = "adup-staging"
 d["description"] = (
-    "INTERNAL — ADUP against the STAGING environment. Identical skills to the "
-    "production `adup` plugin, pointed at gateway-staging.adup.io and "
-    "centralapi-staging.adup.io. Requires a staging employee key in "
-    "ADUP_STAGING_API_KEY. Not for customer use."
+    "ADUP against the STAGING environment — same skills as the production `adup` "
+    "plugin, pointed at gateway-staging.adup.io and centralapi-staging.adup.io. "
+    "For ADUP staff testing before a release. Needs a STAGING employee key in "
+    "ADUP_STAGING_API_KEY; a production key will not authenticate."
 )
 p.write_text(json.dumps(d, indent=2) + "\n")
 
-# The staging variant is INTERNAL-ONLY: it is distributed as a bundle, never
-# listed for discovery. Ship an empty plugin list so that even if this tree is
-# added as a marketplace by mistake, it advertises nothing.
+# A plugin SOURCE DIRECTORY must not carry a marketplace.json — that file
+# describes a marketplace, and the root one already lists this plugin. Leaving a
+# nested copy here would put a second marketplace in the repo.
 m = dest / ".claude-plugin" / "marketplace.json"
 if m.exists():
-    md = json.loads(m.read_text())
-    md["name"] = "adup-staging-internal"
-    md["metadata"] = {
-        "description": "INTERNAL staging build — not for distribution.",
-        "version": d["version"],
-    }
-    md["plugins"] = []
-    m.write_text(json.dumps(md, indent=2) + "\n")
+    m.unlink()
 PY
 
 # ── Overlay: setup's environment CHOICE makes no sense in this variant ─────

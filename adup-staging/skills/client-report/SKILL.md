@@ -1,0 +1,449 @@
+---
+name: client-report
+description: Generate polished, client-ready performance reports with executive summaries, data-backed narratives, and account manager talking points. Primary output is a whitelabel HTML report submitted to the ADUP platform review queue via create_report; PPTX remains available as a legacy option when explicitly requested. Follows the ADUP Report Design Guide and Report Contract for consistent tone, structure, and quality. Supports weekly, monthly, and custom date ranges.
+---
+
+# Client-Ready Performance Report
+
+## Output path — HTML (primary) vs PPTX (legacy)
+
+There are two delivery paths. Choose ONE up front:
+
+- **HTML → platform review queue (DEFAULT).** Build a self-contained HTML report per
+  `templates/REPORT-CONTRACT.md` and submit it with the `create_report` MCP tool. A team
+  member reviews and approves it in the AdUp dashboard; only then does the client see it on
+  the agency's whitelabel portal. Use this path unless the user explicitly asks otherwise.
+- **PPTX + markdown to disk (LEGACY).** Only when the user explicitly asks for a PPTX,
+  PowerPoint, deck, or slides *file* — then follow "Step 5B — Legacy PPTX flow" below.
+  Do not offer it proactively; the platform path is the product.
+
+## Pre-flight
+
+1. Resolve shop context in all three steps: (1) `list_shops` to see the brands and their connected platforms, (2) `set_active_shop(shop_slug="<slug>")` — **required for tool discovery**, an agency key sees only the six virtual tools until a shop is active, (3) pass `shop_slug="<slug>"` explicitly on every data/action call
+2. Determine report type and period:
+   - **Weekly:** last 7 days vs previous 7 days
+   - **Monthly:** last calendar month vs previous calendar month
+   - **Custom:** user-specified date range vs equal-length previous period
+3. Identify all connected platforms for this client via `list_shops`
+4. Read the plugin's `templates/REPORT-DESIGN-GUIDE.md` for tone, structure, and quality rules
+5. HTML path: read the plugin's `templates/REPORT-CONTRACT.md` — the authoritative HTML spec (structure, theming variables, print rules, size limits). Reference sample content quality via `templates/weekly-report-sample.md` / `templates/monthly-report-sample.md`
+6. **Platform continuity + branding + KPI tools — call in this order (HTML path).** The
+   connector exposes three tools that make a report reuse last month's structure, wear the
+   agency's branding, and quote the brand's real targets. Call them for the HTML path BEFORE
+   building (details + exact return fields in "Step 5A"): `get_report_template` FIRST (reuse
+   the last approved skeleton + carry forward the agency's edits), then `get_report_branding`
+   (the `--r-*` colors/fonts + logos), then `get_kpi` (targets to weave into the narrative).
+   **All three optional-degrade:** if a tool is not in the tool list, or returns an error or
+   an empty/`has_*: false` result, fall back silently (build fresh from the contract, contract
+   default theming, no KPI commentary) — NEVER hard-fail the report over a missing tool.
+
+---
+
+## Step 1 — Pull Performance Data (All Connected Platforms)
+
+Pull data from EVERY connected platform. Every data tool is **namespaced `platform__tool`** and takes an explicit `shop_slug` on every call. (Only the six virtual tools — `list_shops`, `set_active_shop`, `create_report`, `get_kpi`, `get_report_template`, `get_report_branding` — are unprefixed.)
+
+### Facebook & Instagram Ads
+```
+facebook__get_campaign_performance_metrics(time_range={...}, shop_slug="<slug>")
+facebook__get_ad_insights(time_range={...}, shop_slug="<slug>", metric_categories=["performance", "conversion", "standard_events"])
+```
+- Campaign-level: spend, impressions, link clicks, CTR, purchases, ROAS, frequency
+- Pull both current and comparison period for WoW/MoM delta
+- Check for learning phase via `facebook__get_adsets(shop_slug="<slug>")` — flag but don't judge
+
+### Google Ads
+```
+google_ads__get_google_ads_account_currency(shop_slug="<slug>")
+google_ads__get_google_ads_campaign_performance(start_date="...", end_date="...", shop_slug="<slug>")
+```
+- **CRITICAL: Divide ALL _micros values by 1,000,000 before displaying**
+- Pull for both current and comparison period
+- Include campaign type context (Search, Shopping, PMax, Display)
+
+### TikTok Ads (if connected)
+- Use the `tiktok__*` report tools with `shop_slug="<slug>"` — TikTok reporting **is** available via MCP
+- Include hook rate (3s views / impressions) and video completion rates (P25/P50/P75/P100)
+
+### LinkedIn Ads (if connected)
+- Use the `linkedin__*` campaign tools with `shop_slug="<slug>"` (e.g. `linkedin__get_linkedin_campaigns(shop_slug="<slug>")`) — LinkedIn **is** available via MCP
+- Campaign analytics for both periods
+- Focus on CPL, lead quality, engagement rate
+- Benchmark CPL against $50-$150 B2B range
+
+### GA4 — SOURCE OF TRUTH for revenue
+```
+ga4__get_ecommerce_performance(user_prompt="Revenue by traffic source", time_range={...}, format_type="table", shop_slug="<slug>")
+ga4__get_user_acquisition(user_prompt="Sessions and revenue by channel", time_range={...}, shop_slug="<slug>")
+```
+- For monthly reports, also pull:
+```
+ga4__get_conversion_funnel(user_prompt="Purchase funnel", time_range={...}, funnel_steps=["view_item","add_to_cart","begin_checkout","add_payment_info","purchase"], shop_slug="<slug>")
+```
+
+---
+
+## Step 2 — Calculate Key Metrics
+
+### Per Platform
+| Metric | Formula | Display Format |
+|--------|---------|---------------|
+| Spend | Direct from platform | €X (whole number if >€100) |
+| Conversions | Platform-reported actions | Whole number |
+| Return on Spend | Platform revenue / spend | **X.Xx** (bold) |
+| Cost per Customer | Spend / conversions | €X.XX |
+| Click-through Rate | Link clicks / impressions | X.X% |
+
+### Blended Metrics (GA4 = source of truth)
+| Metric | Formula |
+|--------|---------|
+| Total Spend | Sum of all platform spend |
+| Total Revenue | GA4 e-commerce revenue |
+| Blended Return | GA4 revenue / total spend |
+| Blended Cost per Customer | Total spend / GA4 transactions |
+| Attribution Gap | Platform conversions vs GA4 (expect 15-25% gap — normal) |
+
+### Period Comparison
+- Calculate absolute change AND percentage change for every key metric
+- **Flag any metric with >20% change** — these become talking points
+- Use consistent formatting: "+8% return" with sign always shown
+
+---
+
+## Step 3 — Generate Report Narrative
+
+### Mandatory Language Translation (Client Reports)
+
+| DON'T write | DO write |
+|-------------|----------|
+| CPA | Cost per customer |
+| ROAS 3.8x | Return of €3.80 for every €1 spent (first use), then "3.8x return" |
+| CTR 1.8% | 1.8% of people who saw the ad clicked through |
+| Impressions | Times the ad was shown |
+| Underperformed | Cost per customer increased / return declined |
+| The campaign failed | We see an opportunity to improve... |
+| Consider increasing budget | Increase budget by 15% to capture ~90 additional customers |
+| CPM | (skip — clients rarely care about cost per thousand) |
+| Learning phase | Optimization period (the platform needs ~50 conversions to learn) |
+
+### Section-by-Section Writing Guide
+
+#### Executive Summary (2-3 sentences)
+The most important section — many clients only read this.
+- **Sentence 1:** Verdict + total spend + total revenue + blended return + vs previous period
+- **Sentence 2:** Biggest win (specific campaign, specific number)
+- **Sentence 3:** Biggest challenge + what you're doing about it
+
+**Quality bar (from sample):**
+> This was a strong week for Nike NL. Total advertising spend of €15,322 across 3 platforms generated €50,110 in revenue, delivering a blended return of €3.27 for every €1 spent — up 12% from last week. Google Ads was the standout performer with a 4.2x return, while Facebook showed early signs of creative wear on prospecting campaigns that need attention before next week.
+
+#### Performance Overview Table
+One table with ALL platforms + bold blended row at bottom.
+- Column headers: Platform | Spend | Conversions | Revenue | Return on Spend | Cost per Customer | vs Last Week/Month
+- Include directional words in comparison column: "+8% return" not just "+8%"
+- Bold the Return on Spend column and the Blended row
+
+#### What Worked (3-5 items)
+For EACH win, include ALL THREE parts:
+1. **What happened** — specific campaign, specific metric, specific number
+2. **Why it worked** — the insight (feed optimization, creative type, audience response, timing)
+3. **What to do about it** — concrete next step (continue, scale by X%, replicate approach)
+
+Include a blockquote recommendation after each win:
+> **Recommendation:** This campaign has room to grow — we're only showing in 72% of eligible searches. Increasing the daily budget by 15% should capture more high-intent shoppers.
+
+#### What Needs Improvement (3-5 items)
+For EACH issue, include ALL THREE parts:
+1. **What happened** — specific campaign, specific metric change
+2. **Root cause** — WHY (creative fatigue, audience saturation, landing page friction, budget misallocation)
+3. **Proposed solution** — specific, actionable, with timeline
+
+**RULE: NEVER present a problem without a proposed solution.**
+
+#### Recommendations Table
+Table format: Priority | Action | Expected Impact | What's Needed
+- **High** = this week, clear ROI
+- **Medium** = within 2 weeks, good opportunity
+- **Low** = explore when capacity allows
+
+Every recommendation must include an expected quantified impact:
+- "Capture ~90 additional customers at €8.50 each"
+- "Reduce cost per customer from €38 back to €28 range"
+- "Unlock €15-20K additional monthly revenue from existing traffic"
+
+#### Attribution Note (MANDATORY — never skip)
+Standard text:
+> **How we measure:** Google Analytics 4 (last-click attribution) is the single source of truth for all revenue and customer numbers in this report. Each advertising platform counts conversions using its own method — Facebook includes people who saw an ad but didn't click, while Google distributes credit across multiple touchpoints. These different methods will always produce higher numbers than Google Analytics. This is normal and expected. We use platform numbers for optimizing within each channel, and Google Analytics for cross-channel budget decisions and total revenue reporting.
+
+#### Talking Points for Client Call
+Structure for account managers — these are spoken, so make them conversational:
+- **Lead with:** The biggest positive story (1 bullet)
+- **Address proactively:** Known issues + what you're already doing about them (1-2 bullets)
+- **Recommend:** Top 1-2 action items with supporting data (1-2 bullets)
+- **If they ask about [likely question]:** Prepared responses with data (2-3 bullets)
+
+---
+
+## Step 4 — Monthly Report: Additional Sections
+
+For monthly reports, insert these between Performance Overview and What Worked:
+
+### Conversion Funnel (GA4)
+Table: Step | Users | Drop-off from Previous Step
+Include a blockquote highlighting the biggest bottleneck:
+> Biggest opportunity: Product page to cart loses 75% of shoppers — above the 65-70% industry benchmark.
+
+### Budget Utilization
+Table: Campaign Group | Planned Budget | Actual Spend | Utilization | Status
+- On Track (90-110%) / Over-paced (>110%) / Under-paced (<90%)
+- Explain any intentional variances
+
+### Channel Mix (GA4 Revenue Attribution)
+Table: Channel | Sessions | Revenue | Revenue Share | Conversion Rate
+- Flag high Unassigned/Direct (>25% = UTM gaps)
+
+### Creative Performance Highlights
+Reference creative playbook data:
+- Top formats by return
+- Average creative lifespan by platform
+- Creative refreshes performed this month
+
+---
+
+## Step 5A — Primary: HTML Report → Platform Review Queue
+
+The HTML build has a fixed order: (1) template → (2) branding → (3) KPIs → (4) build per the
+contract → (5) submit. Steps 1–3 each call one platform tool and each degrades gracefully if
+the tool is missing/errors/empty. Shop must already be resolved (Pre-flight step 1: `list_shops` →
+`set_active_shop` → explicit `shop_slug` per call — the calls below all pass `shop_slug`).
+
+### 5A.1 — `get_report_template` FIRST (structure continuity)
+
+Call `get_report_template(shop_slug="<slug>")`.
+
+- **`has_template: false`** (or tool absent / error) → build FRESH from `REPORT-CONTRACT.md`
+  using the section order in Steps 3–4. Skip the rest of this substep.
+- **`has_template: true`** → REUSE the returned skeleton. The result carries `structure`,
+  `edit_journal`, and `branding`:
+  - **Match `structure.slides`** exactly: it is an array of `{index, data_slide, headings,
+    block_types}`. Produce the SAME number of slides in the SAME order, with the same section
+    headings and the same kinds of blocks (`block_types`) per slide — only swap in this
+    period's data. Keep the same components and tone; do not add or drop slides unless the new
+    period genuinely has no data for one (then condense, don't reshuffle). `structure.slide_count`
+    is your target count.
+  - **Treat `edit_journal` as STANDING CORRECTIONS.** Each entry is `{version_number,
+    edited_by, edit_summary, created_at, text_changes:[{old, new}]}`. For every
+    `text_changes[]` pair, the agency deliberately replaced `old` with `new` (e.g. renamed a
+    metric label, corrected a claim, changed wording). Carry the `new` text forward and NEVER
+    revert to `old`. Also honor the intent described in `edit_summary`.
+  - Use `title`, `period_label`, and `status` for continuity of naming/framing. The template's
+    own `branding` block is what shipped last time; the fresh values from 5A.2 take precedence
+    if they differ.
+
+### 5A.2 — `get_report_branding` (aesthetics + `:root` injection)
+
+Call `get_report_branding(shop_slug="<slug>")`. This is HOW the eight `--r-*` variables get
+their values — do NOT invent colors.
+
+- **Inject `css_vars` VERBATIM into `:root`.** The tool returns
+  `css_vars: {"--r-bg", "--r-panel", "--r-accent", "--r-accent-2", "--r-text",
+  "--r-text-muted", "--r-font-heading", "--r-font-body"}`. Copy each key/value straight into
+  the `<style>` block's `:root`. Every color and font in the document (including inside inline
+  SVG) MUST reference only these `--r-*` vars, per `REPORT-CONTRACT.md`.
+- **Follow `design_md`** for layout, tone-of-voice, and component rules — it is the agency's
+  design system (aesthetic direction, spacing, chart style). Let it govern how slides look and
+  read, within the contract's mechanics.
+- **Logos + favicon:** use `assets.logo_light_url` / `assets.logo_dark_url` for the cover and
+  closing slides (pick the one that reads on the report background), and `assets.favicon_url`
+  where applicable. These are already-hosted URLs the platform resolves — the contract's
+  "no external URL" rule is enforced server-side on ingest for OTHER resources; use the
+  branding-provided asset URLs as given (the platform re-hosts/signs them).
+- **Fonts:** if `assets.font_assets:[{family, weight, style, url}]` is present, the platform
+  serves those font files — you still reference them only through `--r-font-heading` /
+  `--r-font-body`. If absent, the `css_vars` font stacks already carry the fallback.
+- Also available for context: `agency.display_name`, `preset.key` / `preset.name`,
+  `tokens.{mode,colors,fonts}`. If the tool is absent/errors → use tasteful contract defaults.
+
+### 5A.3 — `get_kpi` (targets woven into the narrative)
+
+Call `get_kpi(shop_slug="<slug>", period="<YYYY or YYYY-MM matching the report>", platform="blended")`
+(call again per platform — `meta`/`google`/`tiktok`/`linkedin`/`ga4` — when a scorecard slide
+needs platform-specific targets).
+
+- **`has_targets: false`** (or tool absent / error) → omit target commentary gracefully; the
+  report still stands on its own numbers. Skip the rest of this substep.
+- **`has_targets: true`** → weave the returned `ai_summary` (a compiled natural-language block)
+  and specific `targets[]` into the executive summary, the performance overview, and any
+  KPI/scorecard slides. Each target is `{metric_key, metric_label, platform, period_type,
+  period_start, target_value, target_type, unit, direction, currency, notes}`:
+  - Quote the comparison concretely, e.g. "CPA €41 vs €25 Meta target — 64% over; blended
+    ROAS 3.1x vs 3.5x goal." Use `metric_label`, `currency`/`unit`, and `platform`.
+  - **Respect `direction`** when judging good/bad: `lower_better` (CPA, CPC, CPM) means BELOW
+    target is good; `higher_better` (ROAS, revenue) means ABOVE target is good. Do not praise a
+    number that is on the wrong side of its target.
+  - Use `target_type` (`target`/`cap`/`floor`) and `notes` (agency-quotable context) to frame
+    the comparison. `metric_definitions[]` gives AI-legible metric descriptions if you need
+    them; `resolved_periods` tells you which concrete dates the period expanded to.
+
+### 5A.4 — Build the HTML
+
+Build a single self-contained HTML document **strictly per `templates/REPORT-CONTRACT.md`**
+(do not improvise on structure, theming variables, interactivity attributes, print rules, or
+size — the contract is authoritative and the server strips anything non-compliant). Content,
+tone, and section order follow `templates/REPORT-DESIGN-GUIDE.md`, Steps 3–4 above, the reused
+template skeleton (5A.1), the branding `design_md` (5A.2), and the KPI narrative (5A.3):
+cover slide (verdict on it), executive summary, performance overview table, monthly extras,
+what worked / what needs improvement, recommendations, attribution note, closing slide.
+Put methodology detail and extended tables in `data-expandable` deep-dive blocks.
+
+Pull the performance numbers via the existing namespaced MCP tools (Step 1) — unchanged.
+
+Run the contract's pre-submit checklist AND the Step 6 quality checklist before submitting.
+
+### Submit
+
+Call the `create_report` MCP tool:
+
+```
+create_report(
+  shop_slug="<slug>",
+  title="<Client Name> — <Monthly|Weekly> Report <Period>",
+  period_type="weekly" | "monthly" | "custom",
+  period_start="YYYY-MM-DD",
+  period_end="YYYY-MM-DD",
+  html="<the full document>"
+)
+```
+
+### Report back to the user
+
+Always tell the user:
+1. The **report ID** returned by the tool
+2. Status: **pending_review** — "a team member must approve it in the AdUp dashboard before the client sees it"
+3. Any **sanitizer warnings** returned by the tool — quote them **verbatim**
+
+### Sanitizer warnings — fix and resubmit
+
+There is no tool to update an existing report version in this phase (edits happen in the
+dashboard). So if the sanitizer warnings indicate content was stripped or altered (removed
+script/external resource/attribute, oversize image, etc.):
+1. Fix the HTML so it is fully contract-compliant
+2. Call `create_report` again with the corrected HTML
+3. Tell the user explicitly that this created a **second (duplicate) report** in the review
+   queue and that the reviewer should approve the newest one and discard the first
+
+If the warnings are informational only (nothing stripped that affects the rendered report),
+just surface them — do not resubmit.
+
+---
+
+## Step 5B — Legacy PPTX flow (only when the user explicitly asks for PPTX)
+
+### File Naming Convention
+```
+Weekly:  {client-slug}_weekly_{YYYY-MM-DD}.md    + .pptx
+Monthly: {client-slug}_monthly_{YYYY-MM-01}.md   + .pptx
+```
+
+### Save Process
+1. Create directory: `mkdir -p ~/Desktop/ADUP-Reports/{client-slug}/{YYYY-MM}/`
+2. Write markdown file
+3. Generate PPTX using `anthropic-skills:pptx` — follow slide structure below
+4. Open Finder: `open ~/Desktop/ADUP-Reports/{client-slug}/{YYYY-MM}/`
+
+### PPTX Slide Structure
+
+**Weekly (7 slides):**
+1. Title — Client name, date range, verdict in subtitle
+2. Executive Summary — 3-4 bullets
+3. Performance Overview — Platform table
+4. What Worked — Top 3 wins
+5. What Needs Attention — Top 2-3 with solutions
+6. Recommendations — Priority table
+7. Next Steps / Discussion
+
+**Monthly (10-11 slides):**
+1. Title with verdict
+2. Executive Summary
+3. Platform Performance table
+4. Conversion Funnel
+5. Budget Utilization
+6. Channel Mix
+7. Creative Highlights
+8. What Worked (top 5)
+9. What Needs Improvement (top 5)
+10. Strategic Recommendations
+11. Next Steps
+
+**Slide rules:**
+- Max 5 bullet points per slide
+- One table/chart per slide
+- Title slide must include the verdict
+- Footer on every slide: "Source: ADUP Performance Marketing | [Date]"
+
+---
+
+## Step 6 — Quality Checklist (Run Before Submitting/Saving)
+
+Before finalizing, verify:
+
+- [ ] Executive summary gives a clear verdict in the first sentence
+- [ ] Blended return uses GA4 revenue (not platform-reported)
+- [ ] Google Ads values divided by 1,000,000 (no raw micros)
+- [ ] All currency values use the correct symbol
+- [ ] ROAS displayed as "Xx" format
+- [ ] Period comparison shows +/- percentage on every metric
+- [ ] Every problem has a proposed solution
+- [ ] Every recommendation has a quantified expected impact
+- [ ] Attribution note included
+- [ ] Talking points included and conversational
+- [ ] No untranslated jargon (CPA → cost per customer, etc.)
+- [ ] Learning phase entities flagged but not judged
+- [ ] Performance table has bold blended/total row
+
+HTML path (5A) additionally:
+- [ ] `get_report_template` called first; if `has_template:true`, slide count/order/headings match `structure.slides` and every `edit_journal[].text_changes` correction is carried forward (never reverted)
+- [ ] `get_report_branding` `css_vars` injected verbatim into `:root`; no invented colors; `design_md` followed; logos from `assets.logo_light_url`/`logo_dark_url`
+- [ ] `get_kpi` targets woven in respecting each target's `direction`; commentary omitted gracefully when `has_targets:false`
+- [ ] Missing/erroring tool degraded silently (fresh build / contract defaults / no KPI commentary) — report never hard-failed
+- [ ] `templates/REPORT-CONTRACT.md` pre-submit checklist passes (no script, `--r-*` vars, slide structure, print rules, size)
+- [ ] `create_report` called; report ID + pending_review status + verbatim sanitizer warnings relayed to the user
+- [ ] If content was stripped: regenerated compliant HTML, resubmitted, duplicate noted to the user
+
+Legacy PPTX path (5B) additionally:
+- [ ] File saved with correct naming convention
+- [ ] PPTX generated with correct slide structure
+- [ ] Finder opened to report folder
+
+---
+
+## Rules
+
+1. **Client-friendly language is non-negotiable.** Follow the translation table. Read every sentence as if you're a client who doesn't know what "CPA" means.
+
+2. **GA4 is the source of truth.** Blended return always uses GA4 revenue. Platform numbers are for within-platform context.
+
+3. **Never present a problem without a solution.** Every "needs improvement" item must have a specific proposed action.
+
+4. **Recommendations must be quantified.** "Increase budget by 15%" with "expected to capture ~90 additional customers" — not "consider increasing budget."
+
+5. **Attribution note is mandatory.** Every report that combines platform and GA4 data must include it. No exceptions.
+
+6. **Follow the sample reports.** Reference the plugin's `templates/weekly-report-sample.md` and `templates/monthly-report-sample.md` for the quality bar. Match their depth, tone, and structure.
+
+7. **Google Ads micros.** ALWAYS divide by 1,000,000. Displaying raw micros is a critical error.
+
+8. **Frame positively.** "Opportunity to improve" not "failing." Frame challenges as opportunities, not failures.
+
+9. **HTML is the default delivery.** Submit via `create_report` and relay report ID, pending_review status, and sanitizer warnings verbatim. PPTX/markdown-to-disk only when the user explicitly asks for a PPTX/PowerPoint/deck file (Step 5B) — then save to `~/Desktop/ADUP-Reports/`, generate the PPTX, and open Finder.
+
+10. **The contract is authoritative for HTML.** Never emit `<script>`, external resources, or your own interactivity JS; theme exclusively through the `--r-*` variables. If the sanitizer reports stripped content, regenerate compliant HTML and resubmit as a new report (there is no version-update tool yet), telling the user about the duplicate.
+
+11. **Continuity, branding, KPIs (HTML path).** Call `get_report_template` → `get_report_branding`
+    → `get_kpi` before building (Step 5A). Reuse the template's `structure.slides` skeleton and
+    carry every `edit_journal[].text_changes` correction forward; inject branding `css_vars`
+    verbatim and follow `design_md`; weave `get_kpi` `ai_summary`/`targets` in, respecting each
+    target's `direction`. All three optional-degrade — a missing or erroring tool falls back
+    (fresh build, contract defaults, no KPI commentary) and NEVER hard-fails the report.
+
+12. **Monthly = strategic, weekly = tactical.** Monthly reports go deeper: funnel, utilization, channel mix, creative health, strategic recommendations. Weekly stays focused on this week's performance and next week's actions.
