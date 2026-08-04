@@ -5,24 +5,61 @@
     "email": "info@adup.io"
   },
   "metadata": {
-    "description": "Marketing analytics skills for Claude Code — Facebook Ads, Google Ads, GA4, LinkedIn, TikTok, and more.",
-    "version": "1.2.0"
+    "description": "Marketing analytics skills for Claude Code \u2014 Facebook Ads, Google Ads, GA4, LinkedIn, TikTok, and more.",
+    "version": "1.5.0"
   },
   "plugins": [
     {
       "name": "adup",
       "source": "./",
       "description": "Connect Claude Code to your entire marketing stack. Query Facebook Ads, Google Ads, GA4, Google Search Console, LinkedIn Ads, HubSpot, and Intercom using natural language.",
-      "version": "1.2.0",
+      "version": "1.5.0",
       "author": {
         "name": "ADUP",
         "email": "info@adup.io"
       },
       "homepage": "https://tara.adup.io",
       "repository": "https://github.com/Ad-Up-VC/adup-claude-plugin",
-      "keywords": ["marketing", "analytics", "facebook-ads", "google-ads", "ga4", "linkedin", "tiktok", "hubspot"],
+      "keywords": [
+        "marketing",
+        "analytics",
+        "facebook-ads",
+        "google-ads",
+        "ga4",
+        "linkedin",
+        "tiktok",
+        "hubspot"
+      ],
       "category": "marketing",
-      "tags": ["ads", "analytics", "reporting", "performance-marketing", "agency"]
+      "tags": [
+        "ads",
+        "analytics",
+        "reporting",
+        "performance-marketing",
+        "agency"
+      ]
+    },
+    {
+      "name": "adup-staging",
+      "source": "./adup-staging",
+      "description": "ADUP against the STAGING environment \u2014 same skills as `adup`, pointed at gateway-staging.adup.io. For ADUP staff testing before a release; needs a staging employee key in ADUP_STAGING_API_KEY.",
+      "version": "1.5.0",
+      "author": {
+        "name": "ADUP",
+        "email": "info@adup.io"
+      },
+      "homepage": "https://tara.adup.io",
+      "repository": "https://github.com/Ad-Up-VC/adup-claude-plugin",
+      "keywords": [
+        "staging",
+        "testing",
+        "internal"
+      ],
+      "category": "marketing",
+      "tags": [
+        "staging",
+        "internal"
+      ]
     }
   ]
 }

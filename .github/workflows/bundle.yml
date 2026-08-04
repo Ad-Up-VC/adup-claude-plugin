@@ -1,0 +1,56 @@
+name: bundle
+
+# The distributable is a committed zip (adup.plugin), so nothing at install time
+# re-derives it from source. Two things can therefore ship silently wrong, and
+# both have: a bundle that drifted from the tree, and a tree whose manifest
+# version does not describe what is inside it. Gate both on every PR.
+on:
+  pull_request:
+    paths:
+      - 'skills/**'
+      - 'agents/**'
+      - 'templates/**'
+      - '.mcp.json'
+      - '.claude-plugin/**'
+      - 'adup.plugin'
+      - 'adup-staging.plugin'
+      - 'scripts/pack.sh'
+      - 'scripts/make-staging.sh'
+      - '.github/workflows/bundle.yml'
+  push:
+    branches: [development, main]
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # --verify compares against the last tag
+
+      # Is the committed bundle actually the current tree?
+      # Covers BOTH bundles: the staging variant is generated from this same
+      # tree, so a stale staging bundle means users of the internal plugin get
+      # different skills from production.
+      - name: bundles are not stale
+        run: bash scripts/pack.sh --check
+
+      # Do the manifests honestly describe that tree?
+      # Also asserts the staging variant leaks NO production or dev host — a
+      # bundle labelled staging that talks to production is the worst outcome
+      # this build can produce, so it is a hard failure.
+      - name: manifests are consistent and the staging variant is clean
+        run: bash scripts/pack.sh --verify
+
+      # Every bundled skill must be loadable: a directory without a SKILL.md is
+      # invisible to Claude Code, which looks like "the skill silently vanished".
+      - name: every skill directory has a SKILL.md
+        run: |
+          missing=0
+          for d in skills/*/; do
+            if [ ! -f "$d/SKILL.md" ]; then
+              echo "::error::$d has no SKILL.md"
+              missing=1
+            fi
+          done
+          exit $missing

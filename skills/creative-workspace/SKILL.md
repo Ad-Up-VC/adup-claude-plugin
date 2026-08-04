@@ -39,6 +39,7 @@ acme-nl/                              ← workspace root = ONE shop (agency: sib
 ```
 
 - **Detection first — name files ANYTHING.** Each file's ratio (`1x1`, `4x5`, `9x16`, `16x9`, `191x100`) and format (image/video) are determined from its **actual pixels and duration**: locally via `scripts/inspect.sh`, and authoritatively from the server's extracted metadata after upload. The filename is never the source of truth.
+- **The server and the specs use DIFFERENT ratio notation — translate, never compare raw.** `inspect.sh` and `specs/platform-specs.json` both key on `1x1` / `4x5` / `9x16` / `16x9` / `191x100`; the upload response's `aspect_ratio` is colon-form (`1:1`, `4:5`, `9:16`, `16:9`, `1.91:1`). A literal comparison of `4:5` against `4x5` never matches. Use the `_meta.ratio_notation` map in `specs/platform-specs.json` to convert server → spec key. Anything the server returns that is not in that map (e.g. `7:3` for a 700x300 file) is `other` — no placement on any platform accepts it.
 - **Creative groups** (one group → one multi-placement ad) are formed in this order:
   1. An ad.md's `creative:` field lists **explicit files** or a **folder** — that IS the group.
   2. Otherwise, files in the same `assets/` subfolder group by **stem similarity**: strip extensions, separators (`-`, `_`, spaces), and resolution/ratio suffixes (`1080x1080`, `9x16`, `story`, `square`, …), then cluster near-identical stems (`Hero Final.jpg` + `hero-final-story.mp4` → one group).
@@ -53,7 +54,7 @@ acme-nl/                              ← workspace root = ONE shop (agency: sib
 
 ### Step 1 — Pick the shop
 
-Call `list_shops` on the adup connector. Show the list and ask which client this workspace is for (skip the question for solo accounts with one shop). Then call `set_active_shop(shop_slug="<slug>")`.
+Call `list_shops` on the adup connector. Show the list and ask which client this workspace is for (skip the question for solo accounts with one shop). Then call `set_active_shop(shop_slug="<slug>")` — this is **required for tool discovery**, not just routing: until a shop is active, an agency key sees only the six virtual tools and no `facebook__*` / `tiktok__*` tools at all. Every platform call afterwards still passes `shop_slug="<slug>"` explicitly (the ambient active shop is per API key and races with concurrent runs).
 
 ### Step 2 — Pick the folder
 
@@ -220,7 +221,7 @@ Read-only structural check. **Never modify any file content — report findings 
 Run these checks from the workspace root:
 
 1. **Workspace integrity** — `.adup/workspace.json` exists, parses, has `shop_slug` and `defaults`. `state.json` exists and parses.
-2. **Shop reachable** — `shop_slug` appears in `list_shops` output (warn if not: key may lack access).
+2. **Shop reachable** — `shop_slug` appears in `list_shops` output (warn if not: key may lack access). Call `set_active_shop(shop_slug="<slug>")` before any platform tool check below, and pass `shop_slug="<slug>"` on those calls.
 3. **Orphan assets** — files under `assets/` whose concept group is not referenced by any `ad.md` `creative:` field. (Informational — orphans cost nothing until uploaded.)
 4. **Missing creative groups** — every `ad.md` `creative:` value resolves to ≥1 file in `assets/` (or is an https/Drive link). An ad with `status: ready|uploaded|proposed` and no files = error.
 5. **Stale state entries** — `state.json` assets whose checksum matches no current local file (renamed is fine — keyed by checksum, so only report when the bytes are gone); `state.json` ads whose folder path no longer exists.

@@ -20,17 +20,19 @@ Requires an initialized workspace (`/adup:creative-workspace init` first).
 
 ### Step 1 — Find the winner
 
-If the user named a specific ad, look it up. Otherwise find candidates with the platform's insight tools over the last 14–30 days, e.g.:
+The workspace's `.adup/workspace.json` holds the `shop_slug`. Call `set_active_shop(shop_slug="<slug>")` first — it is **required for tool discovery** (until a shop is active, an agency key sees only the six virtual tools) — then pass `shop_slug="<slug>"` explicitly on every platform call below; the ambient active shop is per API key and races with concurrent runs.
 
-- Facebook: `facebook__get_ad_insights` (CTR/CPA/ROAS per ad) + `facebook__get_ads` / `facebook__ads_get_creatives` for names and creative details
-- TikTok: the TikTok report tools if available for the shop
-- Google/LinkedIn: their performance tools (creation TO them is supported too — google as RSA text ads, linkedin as single image/video ads)
+If the user named a specific ad, look it up. Otherwise find candidates with the platform's namespaced insight tools over the last 14–30 days, e.g.:
+
+- Facebook: `facebook__get_ad_insights(shop_slug="<slug>", ...)` (CTR/CPA/ROAS per ad) + `facebook__get_ads(shop_slug="<slug>")` / `facebook__ads_creative_list(shop_slug="<slug>")` for names and creative details
+- TikTok: the `tiktok__*` report tools with `shop_slug="<slug>"` — TikTok reporting **is** available via MCP
+- Google/LinkedIn: `google_ads__*` and `linkedin__*` performance tools with `shop_slug="<slug>"` (creation TO them is supported too — google as RSA text ads, linkedin as single image/video ads)
 
 Rank by the account's primary KPI (ask if unclear: ROAS, CPA, or CTR), show the top 3–5 with numbers, and let the user confirm which ad to import.
 
 ### Step 2 — Pull the copy
 
-Read the winning ad's creative fields (primary text, headline, description, CTA, landing URL) from the creative detail tools (e.g. `facebook__ads_get_creatives` / `facebook__get_ad_entities`). Show what was extracted.
+Read the winning ad's creative fields (primary text, headline, description, CTA, landing URL). On Facebook this is two hops: `facebook__ads_ad_get(shop_slug="<slug>", ad_id="<id>")` to get the ad and the creative id it points at, then `facebook__ads_creative_get(shop_slug="<slug>", creative_id="<id>")` to read the copy fields off that creative. Show what was extracted.
 
 ### Step 3 — Get the source creative file
 

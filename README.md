@@ -30,6 +30,68 @@ Get your API key from [tara.adup.io/settings/api](https://tara.adup.io/settings/
 /adup:connect
 ```
 
+## Connector
+
+The plugin ships **one** MCP connector, `adup`:
+
+| | |
+|---|---|
+| Name | `adup` |
+| URL | `${ADUP_GATEWAY_BASE:-https://gateway.adup.io}/mcp` |
+| Auth | `Authorization: Bearer ${ADUP_API_KEY}` |
+
+That single connector aggregates every platform your shop has connected — there are
+no per-platform connectors to add. `/adup:setup` writes `ADUP_API_KEY` for you; if
+you set it by hand, `export ADUP_API_KEY=your_key_here` and restart Claude Code.
+
+#### Non-production environments
+
+Production needs no configuration — the defaults point at it. To use a staging or dev
+key, set **both** hosts (the gateway serves the MCP tools, central-api serves reports
+and proposals — a mismatched pair leaves half the plugin 401ing):
+
+```bash
+# production (the default — the built-in values, set explicitly)
+export ADUP_GATEWAY_BASE=https://gateway.adup.io
+export ADUP_API_BASE=https://centralapi.adup.io
+
+# staging
+export ADUP_GATEWAY_BASE=https://gateway-staging.adup.io
+export ADUP_API_BASE=https://centralapi-staging.adup.io
+
+# dev
+export ADUP_GATEWAY_BASE=https://gateway.kodeia.com
+export ADUP_API_BASE=https://centralapi-dev.kodeia.com
+```
+
+Always set **both** — the gateway serves the MCP tools, central-api serves the report,
+proposal and creative-asset endpoints the skills call directly. One without the other splits
+the plugin across two environments.
+
+A key belongs to exactly one environment: a staging key used against production returns
+`invalid_token` even though it is valid. `/adup:connect` reports which environment you
+are currently pointed at.
+
+### Choosing which client you're working on
+
+Three steps, in this order:
+
+1. **`list_shops`** — lists the brands you can access and the platforms connected to each.
+2. **`set_active_shop(shop_slug="<slug>")`** — required before the platform tools
+   appear at all. Until a shop is active (or your key has exactly one shop), the
+   connector only exposes its handful of built-in tools — no `facebook__*`,
+   no `google_ads__*`. If tools seem to be "missing", this is almost always why.
+   The tool list changes when the active shop changes, so reload/reconnect the
+   connector after switching.
+3. **Pass `shop_slug="<slug>"` on every data call.** The active shop is stored once
+   per API key, so anything running in parallel (scheduled tasks, loops over
+   several clients) can otherwise read the wrong client's data. An explicit
+   `shop_slug` always wins over the active shop.
+
+Tool names are namespaced `platform__tool` — e.g. `facebook__get_ad_insights`,
+`google_ads__execute_google_ads_gaql_query`, `ga4__get_ecommerce_performance`. Note the
+Google Ads prefix is `google_ads__`, not `google__`.
+
 ## Available skills
 
 ### Setup & Connection
@@ -38,6 +100,7 @@ Get your API key from [tara.adup.io/settings/api](https://tara.adup.io/settings/
 | Setup | `/adup:setup` | Configure your API key (run once after install) |
 | Connect | `/adup:connect` | Verify connection and see available shops |
 | Shop Select | `/adup:shop-select` | Switch active client (agencies) |
+| Sync Skills | `/adup:sync-skills` | Pull the skills your agency installed in the ADUP portal into your local Claude |
 
 ### Analysis
 | Skill | Command | Description |
@@ -50,6 +113,7 @@ Get your API key from [tara.adup.io/settings/api](https://tara.adup.io/settings/
 | Budget Tracker | `/adup:budget-tracker` | Monitor budget pacing, flag over/underspend |
 | Ad Fatigue | `/adup:ad-fatigue` | Detect creative fatigue and propose responses |
 | Creative Intelligence | `/adup:creative-intelligence` | Score creative performance, build playbooks |
+| Inspiration | `/adup:inspiration` | "Next steps for this client" briefing — prioritised recommendations tied to KPI gaps |
 
 ### Actions (via middleware — all proposals require approval)
 | Skill | Command | Description |
