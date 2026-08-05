@@ -169,7 +169,15 @@ Other things that bite:
 - **GA4 reporting tools require four arguments, not two.** Every GA4 reporting tool requires
   `user_prompt` (the question in natural language), `time_range`, **`dimensions` and
   `metrics`** — a call with only a prompt and dates fails validation.
-  `ga4__run_realtime_report` is the exception with no `time_range` at all.
+  `ga4__run_realtime_report` is the exception with no `time_range` at all (and it rejects the
+  `date` dimension — realtime takes dimensions like `city`).
+- **Some GA4 tools demand specific dimensions or metrics**, and say so one at a time:
+  `ga4__get_conversion_events` needs the `eventName` dimension **and both** `eventCount` and a
+  conversions metric (`keyEvents` or `conversions`); `ga4__get_conversion_event_details` needs
+  `eventCount`. The error names exactly what is missing — read it and add that one, rather than
+  guessing at a whole new argument set.
+- **`tiktok__get_tiktok_business_center` needs a `bc_id`** that no tool returns under that name.
+  Get it from `tiktok__get_tiktok_account_info`, where the field is called **`owner_bc_id`**.
 - **Google Ads costs are in micros.** Divide by 1,000,000. A "€4,300,000 CPC" is €4.30.
 - **`google_ads__execute_google_ads_gaql_query` takes raw GAQL**, not a natural-language prompt.
 - **TikTok report tools are ID-scoped and have no "all" mode.**
@@ -191,10 +199,14 @@ proposal in the agency's action queue** rather than executing:
   reasoning="ROAS 4.1 over 14 days at a 60% impression-share ceiling; +25% headroom.")
 ```
 
-- **`reasoning` is required on every write** and is not decoration — it is what the human
-  approver reads before approving or denying. Write it for them. The one exception to the
-  *name*: the four `{platform}__propose_bulk_launch` tools call it **`shared_reasoning`**
-  (it applies to every proposal in the batch) — same requirement, different key.
+- **Always send `reasoning`** — it is what the human approver reads before approving or denying.
+  The four `{platform}__propose_bulk_launch` tools call it **`shared_reasoning`** instead (it
+  applies to every proposal in the batch).
+  ⚠️ **Nothing enforces this.** The tool schemas mark `reasoning` as required, but the gateway
+  builds the proposal from your arguments *before* the tool itself ever validates them — so a
+  write with no `reasoning` does **not** error. It files a proposal with no rationale, and the
+  approver sees a budget or status change with nothing explaining it. Verified live on staging.
+  Treat `reasoning` as your responsibility, not the platform's.
 - A proposal returns `proposal_id` and `status`. Nothing changes until someone approves it in
   the portal.
 - **Ads default to `status: "PAUSED"`.** The ADUP skills always propose PAUSED, but the
