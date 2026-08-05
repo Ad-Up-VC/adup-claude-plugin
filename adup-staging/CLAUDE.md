@@ -172,8 +172,8 @@ The `/api/v1/me/skills` endpoint returns:
 - Org-private skills the org owners have authored.
 - Each item: `{ id, name, slug, description, category, platform, content, version, is_public, custom_config }`.
 
-## Bundled skills (26 directories)
-`ad-fatigue`, `ads-overview`, `analytics`, `anomaly-alerts`, `budget-tracker`, `client-report`, `connect`, `create-ads`, `creative-import`, `creative-intelligence`, `creative-launch`, `creative-status`, `creative-workspace`, `cross-platform`, `facebook-ads`, `google-ads`, `google-optimize`, `inspiration`, `linkedin-optimize`, `manage-status`, `monday-briefing`, `optimize-budget`, `setup`, `shop-select`, `sync-skills`, `tiktok-optimize`.
+## Bundled skills (27 directories)
+`ad-fatigue`, `ads-overview`, `analytics`, `anomaly-alerts`, `blended-roas`, `budget-tracker`, `client-report`, `connect`, `create-ads`, `creative-import`, `creative-intelligence`, `creative-launch`, `creative-status`, `creative-workspace`, `cross-platform`, `facebook-ads`, `google-ads`, `google-optimize`, `inspiration`, `linkedin-optimize`, `manage-status`, `monday-briefing`, `optimize-budget`, `setup`, `shop-select`, `sync-skills`, `tiktok-optimize`.
 
 Skills are registered by directory presence (`skills/*/SKILL.md`); the slash-command name comes from the SKILL.md frontmatter `name`, which for `creative-launch`/`creative-status` deliberately differs from the directory (`/adup-staging:launch`, `/adup-staging:status`).
 

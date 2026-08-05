@@ -115,6 +115,7 @@ Google Ads prefix is `google_ads__`, not `google__`.
 | Google Ads | `/adup:google-ads` | Search, Shopping, PMax analysis |
 | Analytics | `/adup:analytics` | GA4 web analytics & e-commerce |
 | Cross-Platform | `/adup:cross-platform` | Unified marketing dashboard |
+| Blended ROAS | `/adup:blended-roas` | ROAS per market — Shopify revenue by country vs ad spend by country, with an explicit unattributed-spend bucket |
 | Budget Tracker | `/adup:budget-tracker` | Monitor budget pacing, flag over/underspend |
 | Ad Fatigue | `/adup:ad-fatigue` | Detect creative fatigue and propose responses |
 | Creative Intelligence | `/adup:creative-intelligence` | Score creative performance, build playbooks |
