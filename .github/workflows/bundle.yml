@@ -18,7 +18,7 @@ on:
       - 'scripts/make-staging.sh'
       - '.github/workflows/bundle.yml'
   push:
-    branches: [development, main]
+    branches: [development, staging, main]
 
 jobs:
   verify:

@@ -2,6 +2,11 @@
 
 Query your marketing stack with natural language directly from Claude Code.
 
+**→ [USAGE.md](USAGE.md) — how to use the plugin and the connector correctly** (shop selection,
+tool naming, argument shapes, approvals, errors). Read it before your first real query; it is
+also written to be pasted into project instructions when you use the connector without the
+plugin.
+
 ## Connected platforms
 
 Facebook Ads · Google Ads · Google Analytics 4 · Google Search Console · LinkedIn Ads · HubSpot · Intercom
