@@ -155,19 +155,21 @@ vendor APIs). The tool list is authoritative. §4 lists the shapes that catch pe
 | Platform | Date arguments |
 |---|---|
 | Facebook (insights) | `time_range` object: `{"since": "2026-08-01", "until": "2026-08-31"}` |
+| Facebook (`ads_insights_get`) | neither — `date_preset` + `time_increment` |
 | Facebook (analysis) | no dates — `lookback_days` on `analyze_creative_performance`, `detect_ad_fatigue` |
 | Facebook (`get_budget_pacing`) | `date_range` as a **string**: `"this_month"`, `"last_30d"`, `"this_week"` |
 | Google Ads · TikTok | flat `start_date` / `end_date` strings, `YYYY-MM-DD` |
 | GA4 | `time_range` with **nested numbers**: `{"since": {"year": 2026, "month": 8, "day": 1}, "until": {…}}` |
 | LinkedIn | `date_range` (TimeRange object) |
 | Intercom | camelCase `startDate` / `endDate` in **`DD/MM/YYYY`**, max **7-day** window |
+| everything else | its own shape — `x_ads` uses `start_time`/`end_time`, `adjust` uses `date_period`, `bol_com` uses `period_start_date`/`period_end_date`. Read the schema. |
 
 Other things that bite:
 
-- **GA4 reporting tools require a `user_prompt`.** Every GA4 *reporting* tool takes
-  `user_prompt` (the question in natural language) as a required argument — omitting it fails
-  validation even though you already specified metrics and dates. All of them also require
-  `time_range`, except `ga4__run_realtime_report`, which has no date range at all.
+- **GA4 reporting tools require four arguments, not two.** Every GA4 reporting tool requires
+  `user_prompt` (the question in natural language), `time_range`, **`dimensions` and
+  `metrics`** — a call with only a prompt and dates fails validation.
+  `ga4__run_realtime_report` is the exception with no `time_range` at all.
 - **Google Ads costs are in micros.** Divide by 1,000,000. A "€4,300,000 CPC" is €4.30.
 - **`google_ads__execute_google_ads_gaql_query` takes raw GAQL**, not a natural-language prompt.
 - **TikTok report tools are ID-scoped and have no "all" mode.**
@@ -178,10 +180,10 @@ Other things that bite:
 
 ---
 
-## 5. Writes always go through approval
+## 5. Writes go through approval
 
-Nothing you do reaches an ad platform directly. Write tools are named `propose_*` (plus the
-creative-creation tools), and calling one **files a proposal in the agency's action queue**:
+Write tools are named `propose_*` (plus the creative-creation tools), and calling one **files a
+proposal in the agency's action queue** rather than executing:
 
 ```
 {platform}__propose_budget_change(shop_slug="acme-nl", entity_type="campaign",
@@ -200,6 +202,23 @@ creative-creation tools), and calling one **files a proposal in the agency's act
   `status` explicitly rather than assuming it.
 - Some organisations block specific tools entirely via the MCP Control Center — that is
   `-32004`, not a bug.
+
+**Not every write is a `propose_*` tool.** A handful of tools mutate directly and take no
+`reasoning` at all — `gsc__submit_sitemap`, `gsc__delete_sitemap`,
+`hubspot__hubspot_create_contact`, `hubspot__hubspot_create_company`,
+`ga4__unmark_event_as_conversion`, and the Facebook `ads_*_create` / `ads_*_update` family. The
+gateway still recognises them as writes by name and **defaults them to approval**, but an
+organisation can set a tool's Control Center policy to `allow`, and then the call executes for
+real.
+
+The gateway decides "is this a write?" from the tool name: it is a write when the name contains
+any of these as a whole underscore-separated token —
+
+`create`, `update`, `delete`, `mutate`, `set`, `add`, `remove`, `propose`, `pause`, `enable`,
+`disable`, `write`, `publish`, `launch`, `archive`, `submit`, `unmark`, `upload`, `send`,
+`reply`, `move`, `start`, `stop`
+
+Treat any tool matching that list as live-fire unless you know your organisation's policy.
 
 ---
 
