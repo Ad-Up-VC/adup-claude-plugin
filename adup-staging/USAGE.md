@@ -164,6 +164,10 @@ vendor APIs). The tool list is authoritative. §4 lists the shapes that catch pe
 
 Other things that bite:
 
+- **GA4 reporting tools require a `user_prompt`.** Every GA4 *reporting* tool takes
+  `user_prompt` (the question in natural language) as a required argument — omitting it fails
+  validation even though you already specified metrics and dates. All of them also require
+  `time_range`, except `ga4__run_realtime_report`, which has no date range at all.
 - **Google Ads costs are in micros.** Divide by 1,000,000. A "€4,300,000 CPC" is €4.30.
 - **`google_ads__execute_google_ads_gaql_query` takes raw GAQL**, not a natural-language prompt.
 - **TikTok report tools are ID-scoped and have no "all" mode.**
@@ -186,10 +190,14 @@ creative-creation tools), and calling one **files a proposal in the agency's act
 ```
 
 - **`reasoning` is required on every write** and is not decoration — it is what the human
-  approver reads before approving or denying. Write it for them.
+  approver reads before approving or denying. Write it for them. The one exception to the
+  *name*: the four `{platform}__propose_bulk_launch` tools call it **`shared_reasoning`**
+  (it applies to every proposal in the batch) — same requirement, different key.
 - A proposal returns `proposal_id` and `status`. Nothing changes until someone approves it in
   the portal.
-- **Approved ads are created PAUSED**, always.
+- **Ads default to `status: "PAUSED"`.** The ADUP skills always propose PAUSED, but the
+  underlying create tools also accept `"ACTIVE"` — so if you are calling them raw, set
+  `status` explicitly rather than assuming it.
 - Some organisations block specific tools entirely via the MCP Control Center — that is
   `-32004`, not a bug.
 
