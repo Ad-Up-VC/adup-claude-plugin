@@ -1,0 +1,286 @@
+# Using ADUP — the plugin and the connector
+
+How to get correct answers out of ADUP, whether you use the Claude Code plugin or add the MCP
+connector directly to Claude.ai / Cowork / any other MCP client.
+
+If you read nothing else, read [The five rules](#the-five-rules). Rule 3 —
+**always pass `shop_slug`** — is the one that silently returns the wrong client's data when
+it is skipped.
+
+---
+
+## 1. Two ways to connect
+
+| | **Plugin** (Claude Code) | **Connector only** (Claude.ai, Cowork, other MCP clients) |
+|---|---|---|
+| What you add | The `adup` plugin from the marketplace | One MCP server URL + your API key |
+| Tools | All of them, aggregated | All of them, aggregated — identical surface |
+| Skills (`/adup:facebook-ads`, …) | ✅ 26 bundled | ❌ none — a plugin feature |
+| Knows the rules below | ✅ the skills enforce them | ❌ **you** must state them — paste [§9](#9-drop-in-rules-for-a-bare-connector) |
+
+Both talk to the same gateway with the same key. The connector is not a lesser product — it is
+the same tools without the packaged workflows, which means nothing is reminding the model to
+pass `shop_slug` or to check a tool's schema. That is what §9 is for.
+
+---
+
+## 2. Setup
+
+### Plugin
+
+```
+/adup:setup      # stores your API key
+/adup:connect    # verifies the key, environment, and which brands you can see
+```
+
+Get your key from **tara.adup.io → Settings → API**.
+
+### Connector
+
+Add one MCP server:
+
+| | |
+|---|---|
+| URL | `https://gateway.adup.io/mcp` |
+| Header | `Authorization: Bearer <your ADUP API key>` |
+
+That single connector aggregates **every platform the brand has connected**. There are no
+per-platform connectors to add.
+
+Two connectors exist beyond it, and only if you need them:
+
+- `https://gateway.adup.io/mcp/custom` — external MCP servers your organisation registered in
+  the Control Center. These are **not** part of the base connector.
+- `https://gateway.adup.io/mcp/{platform}` — the legacy per-platform routes. Still supported,
+  no reason to use them for new setups.
+
+### Environments
+
+Production needs no configuration. If you are on an internal environment, set
+`ADUP_GATEWAY_BASE` **and** `ADUP_API_BASE` together — the gateway serves the MCP tools,
+central-api serves reports, proposals and creative assets. Setting only one splits the plugin
+across two environments and reads as "half of it works". See `README.md` for the host pairs.
+
+**A key belongs to exactly one environment.** A key from another environment returns
+`invalid_token` while being perfectly valid — check the environment before blaming the key.
+
+---
+
+## The five rules
+
+### Rule 1 — Start with `list_shops`
+
+It returns every brand you can access, its `shop_slug`, and which platforms are connected to
+each. Never guess a slug from a brand name.
+
+### Rule 2 — `set_active_shop` is about **tool discovery**, not just routing
+
+The connector only *lists* a brand's platform tools once that brand is active — or if your key
+has exactly one brand, in which case it resolves automatically.
+
+> **"The Facebook tools aren't there" almost always means "no active shop".** An agency key with
+> no active shop sees only the six built-in tools and zero `facebook__*`.
+
+```
+set_active_shop(shop_slug="acme-nl")
+```
+
+The tool list changes when the active shop changes. The gateway does emit
+`notifications/tools/list_changed`, but most clients ignore it — **reload or reconnect after
+switching brands**.
+
+### Rule 3 — Pass `shop_slug` on every single call
+
+Every aggregated tool accepts an optional `shop_slug`. Pass it. Always.
+
+```
+facebook__get_campaigns(shop_slug="acme-nl", ...)
+google_ads__get_google_ads_campaign_performance(shop_slug="acme-nl", ...)
+```
+
+The gateway resolves the target brand most-specific-first:
+
+1. explicit `shop_slug` argument →
+2. the active shop (set by `set_active_shop`) →
+3. the sole shop, if the key has exactly one
+
+**Why it matters:** the active shop is stored **once per API key**, not per session. Anything
+running concurrently on that key — scheduled tasks, a loop over five clients, two open windows —
+races: one run's `set_active_shop` clobbers the other's, and a call that relied on the ambient
+shop reads the wrong client. An explicit `shop_slug` is the only race-free option; there is no
+request header that pins the brand.
+
+- **Interactive, one brand:** `set_active_shop` (you need it for discovery anyway), then still
+  pass `shop_slug` — it costs nothing.
+- **Multiple brands, loops, parallel or scheduled runs:** `shop_slug` per call, no exceptions.
+
+Safety guarantees worth knowing: `shop_slug` is a gateway-only routing argument, stripped before
+the request is forwarded upstream — so it never conflicts with a tool's own parameters. A
+`shop_slug` outside your access is **rejected (-32001), never silently redirected** to another
+brand.
+
+### Rule 4 — Tool names are `platform__tool` (double underscore)
+
+**Six virtual tools are unprefixed** — they are served by the gateway itself:
+
+`list_shops` · `set_active_shop` · `create_report` · `get_kpi` · `get_report_template` ·
+`get_report_branding`
+
+**Everything else carries a platform prefix.** The built-in prefixes are:
+
+```
+facebook      google_ads    ga4        gsc         linkedin    hubspot
+intercom      tiktok        snapchat   shopify     openai_ads  bol_com
+reddit_ads    x_ads         dv360      adjust      trustpilot
+```
+
+plus vendor servers registered per brand (`semrush`, `klaviyo`, `ahrefs`, …).
+
+> **The Google Ads prefix is `google_ads__`, never `google__`.** `ga4__` and `gsc__` are separate
+> platforms with their own connections. Never invent a prefix that is not in the list.
+
+Examples: `facebook__get_ad_insights`, `google_ads__execute_google_ads_gaql_query`,
+`ga4__get_ecommerce_performance`, `gsc__query_performance`, `tiktok__get_tiktok_campaigns`,
+`shopify__list_orders`, `linkedin__get_linkedin_campaigns`.
+
+### Rule 5 — Read the tool's own schema before calling it
+
+Sibling tools genuinely disagree with each other about argument shapes (they wrap different
+vendor APIs). The tool list is authoritative. §4 lists the shapes that catch people out.
+
+---
+
+## 4. Argument shapes that differ per platform
+
+| Platform | Date arguments |
+|---|---|
+| Facebook (insights) | `time_range` object: `{"since": "2026-08-01", "until": "2026-08-31"}` |
+| Facebook (analysis) | no dates — `lookback_days` on `analyze_creative_performance`, `detect_ad_fatigue` |
+| Facebook (`get_budget_pacing`) | `date_range` as a **string**: `"this_month"`, `"last_30d"`, `"this_week"` |
+| Google Ads · TikTok | flat `start_date` / `end_date` strings, `YYYY-MM-DD` |
+| GA4 | `time_range` with **nested numbers**: `{"since": {"year": 2026, "month": 8, "day": 1}, "until": {…}}` |
+| LinkedIn | `date_range` (TimeRange object) |
+| Intercom | camelCase `startDate` / `endDate` in **`DD/MM/YYYY`**, max **7-day** window |
+
+Other things that bite:
+
+- **Google Ads costs are in micros.** Divide by 1,000,000. A "€4,300,000 CPC" is €4.30.
+- **`google_ads__execute_google_ads_gaql_query` takes raw GAQL**, not a natural-language prompt.
+- **TikTok report tools are ID-scoped and have no "all" mode.**
+  `tiktok__get_tiktok_campaign_reports` requires `campaign_ids`;
+  `tiktok__get_tiktok_ad_reports` requires `ad_ids`. Fetch the IDs first
+  (`tiktok__get_tiktok_campaigns` / `..._ads`), then report on them. A date range alone fails
+  validation.
+
+---
+
+## 5. Writes always go through approval
+
+Nothing you do reaches an ad platform directly. Write tools are named `propose_*` (plus the
+creative-creation tools), and calling one **files a proposal in the agency's action queue**:
+
+```
+{platform}__propose_budget_change(shop_slug="acme-nl", entity_type="campaign",
+  entity_id="1234", new_budget=250,
+  reasoning="ROAS 4.1 over 14 days at a 60% impression-share ceiling; +25% headroom.")
+```
+
+- **`reasoning` is required on every write** and is not decoration — it is what the human
+  approver reads before approving or denying. Write it for them.
+- A proposal returns `proposal_id` and `status`. Nothing changes until someone approves it in
+  the portal.
+- **Approved ads are created PAUSED**, always.
+- Some organisations block specific tools entirely via the MCP Control Center — that is
+  `-32004`, not a bug.
+
+---
+
+## 6. Reports and targets
+
+| Tool | What it does |
+|---|---|
+| `get_report_branding` | Agency/brand design system — fetch **before** building a report |
+| `get_report_template` | Last approved report's structure + accumulated human edits |
+| `get_kpi` | The brand's KPI targets (year/quarter/month, budget caps, per-platform metric targets) |
+| `create_report` | Submits a report **for agency review** — it is not published to the client |
+
+`create_report` takes a complete, self-contained HTML document: inline CSS, inline SVG charts,
+no external scripts, fonts, stylesheets or images. Oversized HTML is rejected with a size hint —
+switch base64 raster images to inline SVG rather than trimming content.
+
+---
+
+## 7. Errors, and what they actually mean
+
+| Response | Meaning | Fix |
+|---|---|---|
+| `401 invalid_token` | Key rejected — often a key from a different environment | Check the key's environment before assuming it is revoked |
+| `-32001 Shop "x" not in your accessible shops` | Correct behaviour, protecting client scope | Use a slug from `list_shops` |
+| `-32602 No shop selected` | No `shop_slug`, no active shop, and more than one accessible | Pass `shop_slug` or call `set_active_shop` |
+| `-32602 Tool 'x' is not available for this brand` | Tool exists, this brand has no such connection | Check `connected_platforms` from `list_shops` |
+| `-32004 blocked by your organisation's MCP Control Center` | Policy, not a failure | Ask an owner to adjust Tool Access |
+| `-32005` | Per-employee rate limit reached | Slow down; limits are configurable |
+| `-32601 Platform x not connected for shop y` | The brand has not connected that platform | Connect it in the portal |
+| `-32603 Upstream <platform> returned 4xx/5xx` | The vendor API answered with an error | Read the message — usually an account condition |
+
+**A platform error is not a platform outage.** In the last production sweep, 21 of 21 failures
+were external account conditions: HTTP 402 (a frozen Shopify store), 403 (a token missing a
+scope), a TikTok permission that was never granted. When *every* tool of one platform fails
+identically, look at the account, not the code.
+
+---
+
+## 8. Troubleshooting
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| "There are no Facebook/Google tools" | No active shop (Rule 2) | `set_active_shop`, then reload/reconnect |
+| Tools still missing after switching brands | Client ignored `list_changed` | Reload or reconnect the connector |
+| Answers are about the wrong client | Ambient-shop race (Rule 3) | Pass `shop_slug` on every call |
+| Data tools work, reports/proposals 401 | Only one of the two env vars set | Set the gateway and central-api hosts as a pair |
+| Everything 401s with a valid key | Key from another environment | Match key to environment |
+| One platform fails on all its tools | Account condition upstream | Check billing, token scopes, permissions |
+| A write "did nothing" | It filed a proposal, by design | Approve it in the portal action queue |
+
+---
+
+## 9. Drop-in rules for a bare connector
+
+Using the connector without the plugin? Paste this into your project instructions / `CLAUDE.md`
+so the model behaves the way the skills do:
+
+```markdown
+## ADUP connector rules
+
+1. Call `list_shops` first to resolve brand names to slugs. Never guess a slug.
+2. Call `set_active_shop(shop_slug=...)` before expecting platform tools to exist — the
+   connector only lists a brand's tools once that brand is active. After switching brands,
+   reload the tools.
+3. Pass `shop_slug="<slug>"` on EVERY data and action call, even after set_active_shop. The
+   active shop is shared per API key and races across parallel or scheduled runs.
+4. Tool names are `platform__tool` (double underscore). Unprefixed tools are only:
+   list_shops, set_active_shop, create_report, get_kpi, get_report_template,
+   get_report_branding. The Google Ads prefix is `google_ads__`, never `google__`.
+5. Read each tool's schema before calling it — date arguments differ per platform
+   (Facebook `time_range` {since,until}; Google Ads/TikTok flat start_date/end_date;
+   GA4 nested {year,month,day}; Intercom camelCase DD/MM/YYYY, 7-day max).
+6. Google Ads costs are in micros — divide by 1,000,000.
+7. Every `propose_*` write requires a `reasoning` string and only files a proposal for human
+   approval. It never changes anything live, and approved ads land PAUSED.
+8. Never invent tool names or platform prefixes. If a tool is not in the list, say so.
+```
+
+---
+
+## 10. Quick reference
+
+**Virtual tools (unprefixed):** `list_shops`, `set_active_shop`, `create_report`, `get_kpi`,
+`get_report_template`, `get_report_branding`
+
+**Built-in platform prefixes:** `facebook`, `google_ads`, `ga4`, `gsc`, `linkedin`, `hubspot`,
+`intercom`, `tiktok`, `snapchat`, `shopify`, `openai_ads`, `bol_com`, `reddit_ads`, `x_ads`,
+`dv360`, `adjust`, `trustpilot` — plus per-brand vendor servers.
+
+**Shop precedence:** `shop_slug` argument → active shop → sole shop.
+
+**Plugin skills:** see the tables in `README.md`.

@@ -37,6 +37,7 @@ INCLUDE=(
   CLAUDE.md
   PRODUCT.md
   README.md
+  USAGE.md
   install.sh
   agents
   skills
