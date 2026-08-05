@@ -40,6 +40,23 @@ serves everything, so a single `ADUP_STAGING_API_KEY` covers all platforms.
 > PR #57) because single-URL clients (Claude.ai / Cowork web connector) can only
 > add ONE connector URL.
 
+## Branches and promotion
+`development` → `staging` → `main`. The `staging` branch was added 2026-08-05; before that the
+repo had only `development` and `main`, and "promote to staging" had no meaning here (unlike
+tara-gateway, which has had a staging tier all along).
+
+⚠️ **A staging BRANCH is not a staging distribution channel.** Clients install by adding this
+repo as a plugin marketplace, and that resolves `.claude-plugin/marketplace.json` from the
+**default branch (`main`)** — for BOTH plugins, since `adup-staging` is listed there with
+`"source": "./adup-staging"`. So nothing on the `staging` branch is installable from the
+marketplace: the branch is an integration tier where a change is verified before it reaches
+`main`, and publishing still means merging to `main`, which releases the production and staging
+variants together at the same version.
+
+To test a `staging`-branch build before it is published, install from the working tree
+(`--plugin-dir`) or unpack `adup-staging.plugin` — do not expect `/plugin marketplace update`
+to see it.
+
 ## Shop-change tool renewal
 After `set_active_shop`, the gateway emits `notifications/tools/list_changed`, but
 most MCP clients (Claude Code / Cowork) don't act on it — reload tools / reconnect
