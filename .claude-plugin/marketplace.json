@@ -38,28 +38,6 @@
         "performance-marketing",
         "agency"
       ]
-    },
-    {
-      "name": "adup-staging",
-      "source": "./adup-staging",
-      "description": "ADUP against the STAGING environment \u2014 same skills as `adup`, pointed at gateway-staging.adup.io. For ADUP staff testing before a release; needs a staging employee key in ADUP_STAGING_API_KEY.",
-      "version": "1.6.0",
-      "author": {
-        "name": "ADUP",
-        "email": "info@adup.io"
-      },
-      "homepage": "https://tara.adup.io",
-      "repository": "https://github.com/Ad-Up-VC/adup-claude-plugin",
-      "keywords": [
-        "staging",
-        "testing",
-        "internal"
-      ],
-      "category": "marketing",
-      "tags": [
-        "staging",
-        "internal"
-      ]
     }
   ]
 }
