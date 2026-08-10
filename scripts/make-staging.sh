@@ -66,8 +66,10 @@ d["description"] = (
 p.write_text(json.dumps(d, indent=2) + "\n")
 
 # A plugin SOURCE DIRECTORY must not carry a marketplace.json — that file
-# describes a marketplace, and the root one already lists this plugin. Leaving a
-# nested copy here would put a second marketplace in the repo.
+# describes a marketplace, and leaving a nested copy here would put a second
+# marketplace in the repo. It matters twice over now that staging is internal: a
+# marketplace.json inside this tree is exactly the thing that could get the
+# staging plugin published again by a route nobody is checking.
 m = dest / ".claude-plugin" / "marketplace.json"
 if m.exists():
     m.unlink()

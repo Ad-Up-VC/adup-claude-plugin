@@ -49,15 +49,32 @@ tara-gateway, which has had a staging tier all along).
 
 ⚠️ **A staging BRANCH is not a staging distribution channel.** Clients install by adding this
 repo as a plugin marketplace, and that resolves `.claude-plugin/marketplace.json` from the
-**default branch (`main`)** — for BOTH plugins, since `adup-staging` is listed there with
-`"source": "./adup-staging"`. So nothing on the `staging` branch is installable from the
+**default branch (`main`)**. So nothing on the `staging` branch is installable from the
 marketplace: the branch is an integration tier where a change is verified before it reaches
-`main`, and publishing still means merging to `main`, which releases the production and staging
-variants together at the same version.
+`main`, and publishing still means merging to `main`.
 
 To test a `staging`-branch build before it is published, install from the working tree
 (`--plugin-dir`) or unpack `adup-staging.plugin` — do not expect `/plugin marketplace update`
 to see it.
+
+## The marketplace is public — production only
+`.claude-plugin/marketplace.json` is the PUBLIC distribution channel. Anyone who adds this repo
+as a marketplace is offered every plugin listed in it, customers included. **It lists `adup` and
+only `adup`.** `pack.sh --verify` fails if `adup-staging` ever appears there again.
+
+`adup-staging` is INTERNAL. Two ways for staff to install it, neither of them ever shown to a
+customer:
+
+```bash
+claude --plugin-dir ./adup-staging       # from a checkout
+```
+…or upload `adup-staging.plugin` in the desktop app.
+
+> History: 0eac391 (2026-08-03) listed staging publicly on the reasoning that its description
+> ("For ADUP staff testing…") would keep customers away. On 2026-08-10 a customer adding the repo
+> URL was shown an **Adup staging** install card. A description is not an access control. Do not
+> re-list it — if a tester needs an easier install, give them the `--plugin-dir` line, not a
+> marketplace entry.
 
 ## Shop-change tool renewal
 After `set_active_shop`, the gateway emits `notifications/tools/list_changed`, but
