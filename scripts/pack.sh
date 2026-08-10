@@ -162,14 +162,22 @@ print(json.load(open('.mcp.json'))['mcpServers'].get('adup',{}).get('url',''))")
   [ ! -f "$STG_TMP/pkg/.claude-plugin/marketplace.json" ] \
     || note "staging tree contains .claude-plugin/marketplace.json — a plugin source dir must not"
 
-  # The root marketplace must list BOTH plugins, and staging must resolve to the
-  # committed generated tree (that is what makes it installable like production).
-  python3 - <<'PY' || note "root marketplace does not list adup + adup-staging correctly"
+  # The root marketplace is the PUBLIC distribution channel: adding this repo as a
+  # marketplace resolves it and offers every plugin it lists to whoever added it —
+  # customers included. So it must list production and ONLY production. Staging is
+  # internal: staff install it from ./adup-staging (--plugin-dir) or by unpacking
+  # adup-staging.plugin, neither of which a customer is ever offered.
+  #
+  # This assertion used to require the opposite. Listing staging publicly was tried
+  # (0eac391) with the description as the only guard, and a customer was shown an
+  # "Adup staging" install card on 2026-08-10. A description is not an access
+  # control; the listing is.
+  python3 - <<'PY' || note "root marketplace must list adup -> ./ and must NOT list adup-staging"
 import json, sys
 d = json.load(open('.claude-plugin/marketplace.json'))
 by = {p['name']: p for p in d['plugins']}
 sys.exit(0 if by.get('adup', {}).get('source') == './'
-         and by.get('adup-staging', {}).get('source') == './adup-staging' else 1)
+         and 'adup-staging' not in by else 1)
 PY
 
   # Parity: the variant must be a substitution of production, not a fork.
@@ -205,11 +213,12 @@ SSTAGE="$TMP/pkg-staging"
 bash scripts/make-staging.sh "$STAGE" "$SSTAGE" >/dev/null
 ( cd "$SSTAGE" && find . -type f | LC_ALL=C sort | zip -qX "$TMP/out-staging.zip" -@ )
 
-# The generated tree is ALSO committed at ./adup-staging so the root
-# marketplace can resolve `"source": "./adup-staging"` — that is what makes the
-# staging plugin installable the same way production is, rather than
-# hand-unpacked from a bundle. It is generated output: never hand-edit it,
-# `--check` fails if it drifts from what make-staging.sh produces.
+# The generated tree is ALSO committed at ./adup-staging so a staff tester can
+# install it straight from a checkout (`claude --plugin-dir ./adup-staging`)
+# instead of unpacking a bundle. It is deliberately NOT listed in the root
+# marketplace — see the --verify assertion above — because that file is public and
+# staging is internal. It is generated output: never hand-edit it, `--check` fails
+# if it drifts from what make-staging.sh produces.
 STAGING_DIR="adup-staging"
 
 if [ "$CHECK" = "1" ]; then
