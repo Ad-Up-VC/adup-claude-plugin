@@ -67,10 +67,13 @@ Use each platform's own geo breakdown. **Do not** infer a market from the campai
 platform can tell you directly.
 
 ```
-# Facebook / Instagram
-facebook__ads_insights_get(since="YYYY-MM-DD", until="YYYY-MM-DD", level="campaign",
-                           breakdowns=["country"], fields=["spend","impressions","clicks"],
-                           limit=500, shop_slug="<slug>")
+# Facebook / Instagram — same call contract as every other skill: get_ad_insights, with a
+# time_range OBJECT (not flat since/until). Omit campaign_id for account-wide spend, and let the
+# `country` breakdown split it per market. `breakdown` is a single dimension string, not a list.
+facebook__get_ad_insights(shop_slug="<slug>",
+                          time_range={"since": "YYYY-MM-DD", "until": "YYYY-MM-DD"},
+                          breakdown="country", fields=["spend", "impressions", "clicks"],
+                          limit=500)
 
 # TikTok
 tiktok__get_tiktok_geographic_reports(start_date="YYYY-MM-DD", end_date="YYYY-MM-DD", shop_slug="<slug>")

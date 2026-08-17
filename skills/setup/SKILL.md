@@ -147,6 +147,7 @@ for PAIR in "${ADUP_VARS[@]}"; do
 </dict>
 </plist>
 PLIST
+  chmod 600 "$PLIST_FILE"   # the ADUP_API_KEY plist holds the key in cleartext — user-only
   launchctl load "$PLIST_FILE"
   launchctl setenv "$VAR" "$VAL"   # also set immediately for this session
 done
@@ -178,6 +179,9 @@ env.update(pairs)
 with open(settings_path, "w") as f:
     json.dump(settings, f, indent=2)
 PYEOF
+
+# settings.json now holds ADUP_API_KEY in cleartext — lock it to this user only.
+chmod 600 "$HOME/.claude/settings.json"
 ```
 
 #### 3c. Shell profile (for terminal sessions)
@@ -482,3 +486,29 @@ The API key is stored in three per-user locations. On a Mac shared by multiple u
 - **`~/.zshrc` / `~/.bashrc`** — for terminal sessions.
 
 Shell profiles (`.zshrc`, `.bashrc`) are **not** sourced by macOS GUI apps — that's why the LaunchAgent is essential. Each macOS user must run `/adup:setup` once with their own API key. One user's key is never visible to another.
+
+## Security — the API key is stored in cleartext at rest
+
+Be honest with the user about this. `emp_` keys are **long-lived credentials** that authenticate as
+them and scope to their assigned clients, and setup writes them **in cleartext** to three
+per-user locations:
+
+- `~/Library/LaunchAgents/io.adup.env.ADUP_API_KEY.plist`
+- `~/.claude/settings.json`
+- `~/.zshrc` / `~/.bashrc`
+
+The plist and `settings.json` are written `chmod 600` (owner read/write only), so another account
+on the same Mac cannot read them; the shell profile keeps its normal permissions. But `600` is not
+encryption — any process running **as this user**, a backup that captures the home directory, or an
+attacker with the user's session can read the key. It is not stored in the macOS Keychain.
+
+Mitigations to mention when relevant:
+
+- **Treat the key like a password.** Don't commit it, paste it into shared logs, or sync these
+  files to a shared/cloud-backed location.
+- **Rotate on exposure.** If the key may have leaked, ask the agency owner to regenerate it in the
+  portal (Team page) and re-run `/adup:setup` — a rotated key invalidates the old one.
+- **Keychain is the intended hardening** and is planned but not yet wired up: the secure path is to
+  store the key in the login Keychain (`security add-generic-service`) and have setup read it at
+  launch instead of writing plaintext. Until that ships, the `chmod 600` files above are the
+  at-rest protection, and the exposure described here stands.

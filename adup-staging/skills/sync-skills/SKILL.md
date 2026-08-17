@@ -47,6 +47,7 @@ Run this in a bash tool:
 
 ```bash
 API_BASE="${ADUP_STAGING_API_BASE:-https://centralapi-staging.adup.io}"
+export SKILLS_ENDPOINT="${API_BASE}/api/v1/me/skills"
 
 curl -sf -H "Authorization: Bearer ${ADUP_STAGING_API_KEY}" -H "Accept: application/json" \
   "${API_BASE}/api/v1/me/skills" \
@@ -56,7 +57,7 @@ curl -sf -H "Authorization: Bearer ${ADUP_STAGING_API_KEY}" -H "Accept: applicat
   }
 
 python3 <<'PY'
-import json, pathlib, re, sys
+import json, os, pathlib, re, sys
 
 with open('/tmp/adup-me-skills.json') as f:
     data = json.load(f)
@@ -66,9 +67,21 @@ if not isinstance(skills, list):
     print('Unexpected response shape; aborting.')
     sys.exit(1)
 
+source = os.environ.get('SKILLS_ENDPOINT', 'the ADUP portal')
 skills_root = pathlib.Path.home() / '.claude' / 'skills'
 skills_root.mkdir(parents=True, exist_ok=True)
 PREFIX = 'adup-'
+
+# Snapshot what is on disk BEFORE touching anything, so we can tell the user
+# exactly which skills are new, which changed, and which are unchanged. Each
+# file is EXECUTED as instructions on the next launch, and its content is authored
+# in the portal (org owners can add org-private skills) — so this diff is a
+# trust-boundary review, not a cosmetic log.
+before = {}
+for d in sorted(skills_root.glob(f'{PREFIX}*')):
+    p = d / 'SKILL.md'
+    if d.is_dir() and p.is_file():
+        before[d.name] = p.read_text()
 
 # Remove previously-synced skills so an uninstall in the portal removes the
 # command locally too. Only ever touch directories we created: `adup-*` holding
@@ -81,7 +94,18 @@ for d in sorted(skills_root.glob(f'{PREFIX}*')):
         d.rmdir()
         removed += 1
 
-written = []
+def summary_of(skill, content):
+    desc = (skill.get('description') or '').strip()
+    if desc:
+        return desc
+    for line in content.splitlines():
+        s = line.strip()
+        if s.startswith('#'):
+            return s.lstrip('# ').strip()
+    return ''
+
+changes = []   # (name, status, chars, summary)
+written, seen = [], set()
 for skill in skills:
     slug = skill.get('slug')
     content = skill.get('content', '')
@@ -90,22 +114,50 @@ for skill in skills:
     safe = re.sub(r'-+', '-', re.sub(r'[^a-z0-9-]', '-', slug.lower())).strip('-')
     if not safe:
         continue
-    d = skills_root / f'{PREFIX}{safe}'
+    name = f'{PREFIX}{safe}'
+    d = skills_root / name
     d.mkdir(parents=True, exist_ok=True)
     (d / 'SKILL.md').write_text(content)
-    written.append(f'{PREFIX}{safe}')
+    written.append(name)
+    seen.add(name)
+    old = before.get(name)
+    status = 'NEW' if old is None else ('CHANGED' if old != content else 'unchanged')
+    changes.append((name, status, len(content), summary_of(skill, content)))
 
-print(f'Removed {removed} previously-synced skill(s).')
-print(f'Synced {len(written)} skill(s) into {skills_root}:')
-for name in written:
-    print(f'  /{name}')
+# Skills present locally but no longer returned = uninstalled in the portal.
+for name in sorted(before):
+    if name not in seen:
+        changes.append((name, 'REMOVED', 0, '(no longer installed in the portal)'))
+
+print(f'Source: {source}')
+print(f'Synced {len(written)} skill(s) into {skills_root} (removed {removed} old dir(s) first).')
+print('')
+print('Review before restart — each SKILL.md below runs as instructions on next launch:')
+for name, status, chars, summary in changes:
+    print(f'  [{status:9}] /{name}  ({chars} chars)  {summary[:80]}')
 PY
 ```
 
-### 3. Report
+The script deliberately **surfaces a per-skill diff** (`NEW` / `CHANGED` / `unchanged` / `REMOVED`) instead of writing silently. These files are fetched from the portal and executed as instructions on the next launch, so a newly-added or changed skill is a trust boundary — the user should see what arrived and from where before it can run.
 
-List the commands that were actually written (`/adup-<slug>`, one per line — do not invent them;
-use the script's output), then:
+### 3. Report — surface the diff BEFORE the skills can run
+
+Show the user the script's per-skill summary verbatim (`[NEW]` / `[CHANGED]` / `[unchanged]` /
+`[REMOVED]` with the source endpoint), one line per skill — do not invent commands; use the
+script's output. This step exists on purpose: synced files are fetched from the portal and are
+**executed as instructions the next time Claude Code starts**, so the user must be able to see what
+arrived and from where before it takes effect. Do not present the sync as done without showing the
+list.
+
+Then, if anything is `NEW` or `CHANGED`, explicitly call those out and offer to show the content:
+
+> Heads up: the skills marked **NEW** / **CHANGED** were authored in your ADUP portal (your agency
+> owners can add org-private skills) and will run as instructions once you restart. Want me to print
+> any of them so you can review before they take effect? They live at
+> `~/.claude/skills/adup-<slug>/SKILL.md`.
+
+If the user asks, `cat` the relevant `~/.claude/skills/adup-<slug>/SKILL.md` so they can read it.
+Only after the review:
 
 > Restart Claude Code to pick them up — a skills directory that did not exist at session start
 > only becomes watchable after a restart.
