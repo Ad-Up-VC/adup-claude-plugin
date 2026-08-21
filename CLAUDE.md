@@ -54,27 +54,22 @@ marketplace: the branch is an integration tier where a change is verified before
 `main`, and publishing still means merging to `main`.
 
 To test a `staging`-branch build before it is published, install from the working tree
-(`--plugin-dir`) or unpack `adup-staging.plugin` — do not expect `/plugin marketplace update`
-to see it.
+(`--plugin-dir`) — do not expect `/plugin marketplace update` to see it.
 
 ## The marketplace is public — production only
 `.claude-plugin/marketplace.json` is the PUBLIC distribution channel. Anyone who adds this repo
 as a marketplace is offered every plugin listed in it, customers included. **It lists `adup` and
-only `adup`.** `pack.sh --verify` fails if `adup-staging` ever appears there again.
+only `adup`**, and `pack.sh --verify` fails if anything else appears there.
 
-`adup-staging` is INTERNAL. Two ways for staff to install it, neither of them ever shown to a
-customer:
+**Testing against staging** uses the production `adup` plugin pointed at the staging hosts via the
+`ADUP_GATEWAY_BASE` / `ADUP_API_BASE` env vars (see the environment table above) — that is exactly
+what those overrides are for. A staging **employee key** is still required.
 
-```bash
-claude --plugin-dir ./adup-staging       # from a checkout
-```
-…or upload `adup-staging.plugin` in the desktop app.
-
-> History: 0eac391 (2026-08-03) listed staging publicly on the reasoning that its description
-> ("For ADUP staff testing…") would keep customers away. On 2026-08-10 a customer adding the repo
-> URL was shown an **Adup staging** install card. A description is not an access control. Do not
-> re-list it — if a tester needs an easier install, give them the `--plugin-dir` line, not a
-> marketplace entry.
+> History: a separate internal `adup-staging` plugin variant used to be generated (`make-staging.sh`)
+> and committed alongside `adup` as `./adup-staging` + `adup-staging.plugin`. It was listed publicly
+> once (0eac391, 2026-08-03) and a customer was shown an **Adup staging** install card on 2026-08-10
+> — a description is not an access control. The whole variant (tree, bundle, generator, and its
+> pack/CI wiring) was removed on 2026-08-21; the env-var override above replaces it.
 
 ## Shop-change tool renewal
 After `set_active_shop`, the gateway emits `notifications/tools/list_changed`, but
@@ -199,7 +194,7 @@ Skills are registered by directory presence (`skills/*/SKILL.md`); the slash-com
 ## Creative workspace family (v1.2.0)
 Local-folder bulk ad launching (folders + markdown = source of truth):
 - `skills/creative-workspace/` — `/adup:creative-workspace` init (scaffold BRAND.md, `.adup/workspace.json` with shop_slug + defaults incl. the one-time `enhancements: off|ask|on` answer, assets/, campaigns/ example) + doctor (structural checks, report-only). Ships shared resources: `specs/platform-specs.json` (per-platform ratio/px/mb/duration/text-limit matrix, `_meta.verified_at` for re-verification) and `scripts/inspect.sh` (file → JSON metadata via sips/identify/ffprobe + sha256) / `scripts/upload.sh` (checksum-dedup multipart upload to central-api creative-assets).
-- `skills/creative-launch/` — `/adup:launch`: validate (specs + inspect.sh) → upload (central-api `POST /api/v1/shops/{slug}/creative-assets`, `from-url` for Drive links, sha256 dedup via `.adup/state.json` + `?checksum=`) → one uuid batch_id → fan out proposals per ad × platform × language (`facebook__ads_ad_create`/`facebook__ads_creative_create`, `tiktok__propose_create_campaign` / `tiktok__propose_create_adgroup` / `tiktok__propose_create_ad`, `google_ads__propose_google_create_rsa` text ads, `linkedin__propose_linkedin_create_ad`; >3 ads on one platform → one `{platform}__propose_bulk_launch` call, 50 cap) → write back state + `status: proposed`. Every proposal embeds `metadata.platform_targets` (merged from the campaign `map:` blocks, all platforms) so the portal's approve-time "also launch on X" tick can auto-create replicas. Count confirmation before proposing; ONLY image-downscale auto-fix (with confirmation); never auto-truncates copy. Creation supported: facebook, tiktok, google (RSA text only), linkedin; snapchat degrades gracefully until its executor ships.
+- `skills/creative-launch/` — `/adup:launch`: validate (specs + inspect.sh) → upload (central-api `POST /api/v1/shops/{slug}/creative-assets`, `from-url` for Drive links, sha256 dedup via `.adup/state.json` + `?checksum=`) → one uuid batch_id → fan out proposals per ad × platform × language (`facebook__propose_create_ad`/`facebook__propose_bulk_launch` — never the direct `facebook__ads_*_create` tools, which bypass the approval queue; `tiktok__propose_create_campaign` / `tiktok__propose_create_adgroup` / `tiktok__propose_create_ad`, `google_ads__propose_google_create_rsa` text ads, `linkedin__propose_linkedin_create_ad`; >3 ads on one platform → one `{platform}__propose_bulk_launch` call, 50 cap) → write back state + `status: proposed`. Every proposal embeds `metadata.platform_targets` (merged from the campaign `map:` blocks, all platforms) so the portal's approve-time "also launch on X" tick can auto-create replicas. Count confirmation before proposing; ONLY image-downscale auto-fix (with confirmation); never auto-truncates copy. Creation supported: facebook, tiktok, google (RSA text only), linkedin; snapchat degrades gracefully until its executor ships.
 - **Detection-first media** (v1.2.x): files can be named ANYTHING — ratio/format come from actual pixels/duration (inspect.sh locally, server metadata after upload). Grouping: explicit `creative:` list/folder → stem-similarity clustering → one confirmation table on ambiguity. Filename ratio tokens are an optional hint; on contradiction detection wins with a warning (never an error).
   - **Two ratio notations, always translate.** central-api returns `aspect_ratio` in colon form (`1:1`, `4:5`, `1.91:1`); `inspect.sh` and `specs/platform-specs.json` key on the x-form (`1x1`, `4x5`, `191x100`). Convert via `_meta.ratio_notation` in `platform-specs.json` — comparing the raw strings matches nothing and would silently pass every placement check. A server value absent from that map (e.g. `7:3`) is `other`.
 - `skills/creative-status/` — `/adup:status`: central-api `GET /api/v2/employee/tara/proposals?shop_slug=` → state.json + ad.md status sync, denial notes → `## Review feedback`, board output, `--csv` / `--sheet` exports. Also drains pending replication requests (`GET /api/v2/employee/tara/actions/replication-requests`) — reviewer ticked "also launch on X" in the portal → skill prepares + launches for that platform, then PATCHes the request fulfilled/dismissed.

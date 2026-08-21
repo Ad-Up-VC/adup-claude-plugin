@@ -85,6 +85,9 @@ cat > "$PLIST_FILE" <<PLIST
 </plist>
 PLIST
 
+# The plist stores the API key in cleartext — lock it to this user only.
+chmod 600 "$PLIST_FILE"
+
 # Load it immediately so desktop apps can pick it up right now
 launchctl unload "$PLIST_FILE" 2>/dev/null || true
 launchctl load "$PLIST_FILE"
@@ -119,6 +122,9 @@ settings["env"]["ADUP_API_KEY"] = api_key
 with open(settings_path, "w") as f:
     json.dump(settings, f, indent=2)
 PYEOF
+
+# settings.json now holds the API key in cleartext — lock it to this user only.
+chmod 600 "$SETTINGS_FILE"
 
 echo -e "  ${GREEN}✓${NC} API key saved to ~/.claude/settings.json (for Claude Code CLI)"
 

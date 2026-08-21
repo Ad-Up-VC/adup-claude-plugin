@@ -13,9 +13,7 @@ on:
       - '.mcp.json'
       - '.claude-plugin/**'
       - 'adup.plugin'
-      - 'adup-staging.plugin'
       - 'scripts/pack.sh'
-      - 'scripts/make-staging.sh'
       - '.github/workflows/bundle.yml'
   push:
     branches: [development, staging, main]
@@ -29,17 +27,11 @@ jobs:
           fetch-depth: 0   # --verify compares against the last tag
 
       # Is the committed bundle actually the current tree?
-      # Covers BOTH bundles: the staging variant is generated from this same
-      # tree, so a stale staging bundle means users of the internal plugin get
-      # different skills from production.
-      - name: bundles are not stale
+      - name: bundle is not stale
         run: bash scripts/pack.sh --check
 
       # Do the manifests honestly describe that tree?
-      # Also asserts the staging variant leaks NO production or dev host — a
-      # bundle labelled staging that talks to production is the worst outcome
-      # this build can produce, so it is a hard failure.
-      - name: manifests are consistent and the staging variant is clean
+      - name: manifests are consistent
         run: bash scripts/pack.sh --verify
 
       # Every bundled skill must be loadable: a directory without a SKILL.md is
