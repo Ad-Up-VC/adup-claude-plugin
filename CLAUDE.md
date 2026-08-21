@@ -54,27 +54,22 @@ marketplace: the branch is an integration tier where a change is verified before
 `main`, and publishing still means merging to `main`.
 
 To test a `staging`-branch build before it is published, install from the working tree
-(`--plugin-dir`) or unpack `adup-staging.plugin` — do not expect `/plugin marketplace update`
-to see it.
+(`--plugin-dir`) — do not expect `/plugin marketplace update` to see it.
 
 ## The marketplace is public — production only
 `.claude-plugin/marketplace.json` is the PUBLIC distribution channel. Anyone who adds this repo
 as a marketplace is offered every plugin listed in it, customers included. **It lists `adup` and
-only `adup`.** `pack.sh --verify` fails if `adup-staging` ever appears there again.
+only `adup`**, and `pack.sh --verify` fails if anything else appears there.
 
-`adup-staging` is INTERNAL. Two ways for staff to install it, neither of them ever shown to a
-customer:
+**Testing against staging** uses the production `adup` plugin pointed at the staging hosts via the
+`ADUP_GATEWAY_BASE` / `ADUP_API_BASE` env vars (see the environment table above) — that is exactly
+what those overrides are for. A staging **employee key** is still required.
 
-```bash
-claude --plugin-dir ./adup-staging       # from a checkout
-```
-…or upload `adup-staging.plugin` in the desktop app.
-
-> History: 0eac391 (2026-08-03) listed staging publicly on the reasoning that its description
-> ("For ADUP staff testing…") would keep customers away. On 2026-08-10 a customer adding the repo
-> URL was shown an **Adup staging** install card. A description is not an access control. Do not
-> re-list it — if a tester needs an easier install, give them the `--plugin-dir` line, not a
-> marketplace entry.
+> History: a separate internal `adup-staging` plugin variant used to be generated (`make-staging.sh`)
+> and committed alongside `adup` as `./adup-staging` + `adup-staging.plugin`. It was listed publicly
+> once (0eac391, 2026-08-03) and a customer was shown an **Adup staging** install card on 2026-08-10
+> — a description is not an access control. The whole variant (tree, bundle, generator, and its
+> pack/CI wiring) was removed on 2026-08-21; the env-var override above replaces it.
 
 ## Shop-change tool renewal
 After `set_active_shop`, the gateway emits `notifications/tools/list_changed`, but
