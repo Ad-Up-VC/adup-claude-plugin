@@ -186,6 +186,20 @@ The `/api/v1/me/skills` endpoint returns:
 - Org-private skills the org owners have authored.
 - Each item: `{ id, name, slug, description, category, platform, content, version, is_public, custom_config }`.
 
+## Approval rules are not readable with an employee key
+No tool and no gateway route reachable with an `emp_` key returns an organisation's approval
+settings, auto-approval rules, or action audit log — `/actions/{shop}/settings`, `/rules` and
+`/audit-log` all answer `Unauthenticated.` for one. That is deliberate (those routes forward
+the employee Bearer to central-api's dashboard surface, which is session-authed; see
+`tara-gateway/src/routes/actions.js`), so **never build a skill that reads them**. The
+consequence to design around: a skill cannot know whether a proposal will wait for a human or
+be auto-approved, so it must not promise the user that a write will be reviewed — only that it
+has been filed. Confirmed live 2026-08-24.
+
+Related, from the same run: a write call with **no content at all** (no entity, no value —
+`reasoning` alone does not count) is refused with `-32602` and files nothing. Anything that
+names an entity or supplies a value still files, `reasoning` or not.
+
 ## Bundled skills (27 directories)
 `ad-fatigue`, `ads-overview`, `analytics`, `anomaly-alerts`, `blended-roas`, `budget-tracker`, `client-report`, `connect`, `create-ads`, `creative-import`, `creative-intelligence`, `creative-launch`, `creative-status`, `creative-workspace`, `cross-platform`, `facebook-ads`, `google-ads`, `google-optimize`, `inspiration`, `linkedin-optimize`, `manage-status`, `monday-briefing`, `optimize-budget`, `setup`, `shop-select`, `sync-skills`, `tiktok-optimize`.
 
