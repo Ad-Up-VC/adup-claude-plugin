@@ -56,10 +56,11 @@ Two connectors exist beyond it, and only if you need them:
 
 ### Environments
 
-Production needs no configuration. If you are on an internal environment, set
-`ADUP_GATEWAY_BASE` **and** `ADUP_API_BASE` together — the gateway serves the MCP tools,
-central-api serves reports, proposals and creative assets. Setting only one splits the plugin
-across two environments and reads as "half of it works". See `README.md` for the host pairs.
+Production needs no configuration, and the connector cannot be moved off it — its URL is a
+literal. `ADUP_API_BASE` redirects only the direct central-api calls (reports, proposals, creative
+assets), so setting it splits the plugin across two environments: MCP tools from production,
+everything else from wherever you pointed it. Useful for testing, not a supported setup. See
+`README.md`.
 
 **A key belongs to exactly one environment.** A key from another environment returns
 `invalid_token` while being perfectly valid — check the environment before blaming the key.

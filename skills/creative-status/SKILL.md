@@ -36,7 +36,7 @@ curl -s -H "Authorization: Bearer $ADUP_API_KEY" -H "Accept: application/json" \
 
 **Response shapes differ between the two — do not assume.** The list returns a Laravel paginator, so the rows are at `data.data[]`; the single-proposal GET returns `data.proposal`. A denial note is on `review_notes`.
 
-> Employee API keys (`emp_…`) authenticate against `/api/v2/employee/tara/…` only. The gateway also proxies these as `${ADUP_GATEWAY_BASE}/actions/<shop_slug>/proposals…`, but that proxy targeted central-api's **seller-JWT dashboard** routes until tara-gateway PR #90, so on any gateway older than that it answers `401 Unauthenticated.` Calling central-api directly works regardless of which gateway version is deployed, so prefer it here.
+> Employee API keys (`emp_…`) authenticate against `/api/v2/employee/tara/…` only. The gateway also proxies these as `https://gateway.adup.io/actions/<shop_slug>/proposals…`, but that proxy targeted central-api's **seller-JWT dashboard** routes until tara-gateway PR #90, so on any gateway older than that it answers `401 Unauthenticated.` Calling central-api directly works regardless of which gateway version is deployed, so prefer it here.
 
 Map platform statuses to workspace lifecycle statuses:
 

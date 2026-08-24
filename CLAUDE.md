@@ -3,29 +3,33 @@
 **Role:** Claude Code plugin (`adup`, repo `adup-claude-plugin`) exposing the ADUP MCP connector and dynamically-registered skills.
 
 ## Phase 0 state
-Single `adup` connector in `.mcp.json`. 26 bundled skill directories. 1 agent (`adup-analyst.md`). Chat-stream references in skills cleaned.
+Single `adup` connector in `.mcp.json`. 28 bundled skill directories. 1 agent (`adup-analyst.md`). Chat-stream references in skills cleaned.
 
 ## .mcp.json — single aggregated connector
-ONE connector: `adup → ${ADUP_GATEWAY_BASE:-https://gateway.adup.io}/mcp`
-(auth `Authorization: Bearer ${ADUP_API_KEY}`).
+ONE connector: `adup → https://gateway.adup.io/mcp`
+(auth `Authorization: Bearer ${user_config.ADUP_API_KEY}`).
 
-### Environments — always set the pair, or neither
-Claude Code expands `${VAR:-default}` in an http server's `url` and `headers`, so the connector
-retargets by env var; the built-in defaults ARE production, so an install with nothing set
-still works. Setup writes the production pair explicitly anyway — switching back from staging or
-dev then overwrites rather than having to delete an override from three separate places.
+### The key comes from plugin config, not the environment
+`plugin.json` declares `userConfig.ADUP_API_KEY` (string, required, sensitive). Claude Code prompts
+for it at enable time, masks it, stores it in the keychain, and substitutes it into the connector
+header. `pack.sh --verify` asserts both halves — the literal URL and the `${user_config.…}` header —
+plus the presence of the declaration, because either half alone ships a connector that cannot
+authenticate.
 
-| environment | `ADUP_GATEWAY_BASE` | `ADUP_API_BASE` |
-|---|---|---|
-| **production** (default) | `https://gateway.adup.io` | `https://centralapi.adup.io` |
-| staging | `https://gateway-staging.adup.io` | `https://centralapi-staging.adup.io` |
-| dev | `https://gateway.kodeia.com` | `https://centralapi-dev.kodeia.com` |
+**Why not an env var.** `${ADUP_API_KEY}` and `${ADUP_GATEWAY_BASE:-…}` expand in the Claude Code
+CLI only. On claude.ai and the desktop app the literal string was used as the URL and the
+credential: the connector dialog rejected the URL outright ("URL must start with 'https'") and the
+header authenticated with the placeholder text. Measured 2026-08-24.
 
-`ADUP_GATEWAY_BASE` moves the MCP connector; `ADUP_API_BASE` moves the direct HTTP calls the
-skills make (reports, proposals, creative assets, `/me/skills`). **Setting only one splits the
-plugin across two environments** — MCP tools answer from one and the report/proposal endpoints
-401 from the other, which reads as "some of it works". `pack.sh --verify` enforces that the
-connector url keeps the overridable form so a hardcoded host cannot ship again.
+### Environments
+The connector URL is literal, so the plugin always talks to the production gateway.
+`ADUP_API_BASE` still moves the direct HTTP calls the skills make (reports, proposals, creative
+assets, `/me/skills`) and defaults to `https://centralapi.adup.io`; staging is
+`https://centralapi-staging.adup.io`, dev is `https://centralapi-dev.kodeia.com`. Moving it alone
+splits the plugin across two environments — MCP tools from production, report/proposal endpoints
+from elsewhere — so treat it as a testing tool only.
+
+`ADUP_GATEWAY_BASE` is **dead**. `/adup:reset` clears leftovers; nothing writes it.
 
 ⚠️ **A key belongs to exactly ONE environment.** A staging key against production returns
 `invalid_token` while being perfectly valid — check the environment before blaming the key.
@@ -61,9 +65,10 @@ To test a `staging`-branch build before it is published, install from the workin
 as a marketplace is offered every plugin listed in it, customers included. **It lists `adup` and
 only `adup`**, and `pack.sh --verify` fails if anything else appears there.
 
-**Testing against staging** uses the production `adup` plugin pointed at the staging hosts via the
-`ADUP_GATEWAY_BASE` / `ADUP_API_BASE` env vars (see the environment table above) — that is exactly
-what those overrides are for. A staging **employee key** is still required.
+**Testing against staging** no longer works by env var alone: since v1.7.0 the connector URL is a
+literal, so `ADUP_API_BASE` moves only the direct central-api calls while MCP tools keep answering
+from production. A real staging test needs a variant build of the plugin (literal staging URL) or a
+custom connector added by hand. A staging **employee key** is still required either way.
 
 > History: a separate internal `adup-staging` plugin variant used to be generated (`make-staging.sh`)
 > and committed alongside `adup` as `./adup-staging` + `adup-staging.plugin`. It was listed publicly
@@ -214,7 +219,7 @@ Local-folder bulk ad launching (folders + markdown = source of truth):
 - `skills/creative-status/` — `/adup:status`: central-api `GET /api/v2/employee/tara/proposals?shop_slug=` → state.json + ad.md status sync, denial notes → `## Review feedback`, board output, `--csv` / `--sheet` exports. Also drains pending replication requests (`GET /api/v2/employee/tara/actions/replication-requests`) — reviewer ticked "also launch on X" in the portal → skill prepares + launches for that platform, then PATCHes the request fulfilled/dismissed.
   - **Employee keys authenticate against `/api/v2/employee/tara/…` only.** The gateway also proxies these as `{gateway}/actions/{shop}/proposals…`, but that proxy targeted central-api's seller-JWT *dashboard* routes until tara-gateway PR #90 — so on an older gateway it answers `401 Unauthenticated.` Calling central-api directly works on any gateway version, which is why the skill does. Response shapes differ: the list is a Laravel paginator (`data.data[]`), the single GET returns `data.proposal`.
 - `skills/creative-import/` — `/adup:creative-import` winner (insights → pull copy → ask for source file → draft ad.md for NEW platforms) and sheet (CSV/xlsx copy-matrix → ad.md files, interactive column mapping, one-way).
-- API bases: central-api `${ADUP_API_BASE:-https://centralapi.adup.io}`, gateway `${ADUP_GATEWAY_BASE:-https://gateway.adup.io}`.
+- API bases: central-api `${ADUP_API_BASE:-https://centralapi.adup.io}` (bash-level calls); the gateway is the literal `https://gateway.adup.io`.
 - HARD INVARIANT (restated in every launch-adjacent skill): nothing reaches an ad platform before portal approval; approved ads always land PAUSED.
 
 ## Removed/cleaned (Phase 0)

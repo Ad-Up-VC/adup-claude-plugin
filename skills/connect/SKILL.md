@@ -7,29 +7,19 @@ description: Connect your ADUP account and verify which platforms are active. Ru
 
 Verify the ADUP connection, show the user their role and accessible shops, and confirm which platforms are connected per shop.
 
-## Which environment am I on?
+## Where the key comes from
 
-Report it alongside the role and shops — a user who cannot tell production from staging cannot
-interpret anything else the skill says, and "my key stopped working" is nearly always a key
-pointed at the wrong environment.
+The connector reads the key from the plugin's own **Employee API key** field, filled in when the
+plugin was enabled. It is not a shell variable any more: `ADUP_API_KEY` only ever expanded in the
+Claude Code CLI, so every GUI install authenticated with the literal string `${ADUP_API_KEY}` and
+got a 401 nobody could fix from the UI.
 
-| `ADUP_GATEWAY_BASE` | environment |
-|---|---|
-| `https://gateway.adup.io` *(or unset)* | **production** |
-| `https://gateway-staging.adup.io` | staging |
-| `https://gateway.kodeia.com` | dev |
+The connector is pinned to production (`https://gateway.adup.io/mcp`). A key is issued by ONE
+environment and authenticates only against that one, so a staging or dev key returns
+`invalid_token` here while being perfectly valid where it came from.
 
-Setup writes the production pair explicitly, but an older install may have nothing set — that
-also means production, because the built-in defaults are the production hosts.
-
-```bash
-echo "gateway:     ${ADUP_GATEWAY_BASE:-https://gateway.adup.io  (production default)}"
-echo "central-api: ${ADUP_API_BASE:-https://centralapi.adup.io  (production default)}"
-```
-
-**Flag a mismatched pair as a problem**, not a detail: one host overridden and the other not means
-MCP tool calls and the report/proposal endpoints are talking to different environments, so part of
-the plugin works and part 401s. Both, or neither.
+`ADUP_API_BASE` still applies to the skills that call central-api directly over bash (reports,
+proposals, creative uploads) and still defaults to production — it does **not** move the connector.
 
 ## Steps
 
@@ -104,19 +94,31 @@ every data call (the active shop is shared per API key and parallel runs race).
 
 ## Error handling
 
-If `list_shops` fails with an auth error:
-"The ADUP connection needs authentication. Set your personal API key: `export ADUP_API_KEY=your_key_here`, then restart Claude Code. If you don't have a key, ask your agency owner to invite you in the portal."
+**Auth error (`-32001`, `invalid_token`).** The gateway now says what to do in the error's `data`:
+`reason: credential_rejected`, `action: reauthenticate`, and an `authorize_url`. Read it rather than
+guessing, then tell the user:
 
-If the key IS set and still rejected, suspect the **environment** before the key. A key is issued
-by one environment and authenticates only against that one, so a staging or dev key hits production
-by default and returns `invalid_token` while being perfectly valid. Run `/adup:setup` and pick the
-matching environment at Step 2b.
+> Your ADUP key was rejected. It may have been regenerated, revoked, or issued by a different
+> environment. Get a current key from Tara → **My MCP setup**, then update the plugin's
+> **Employee API key** field (see `/adup:reset`).
 
-If the MCP server itself is unreachable (connection refused or timeout):
-"Cannot reach the ADUP gateway at `${ADUP_GATEWAY_BASE:-https://gateway.adup.io}/mcp`. Check that your ADUP_API_KEY is set correctly and the service is running."
+Offer to open the key page for them — `open https://tara.adup.io/my-mcp-setup` on macOS. Do not tell
+them to `export ADUP_API_KEY=…`; that no longer feeds the connector.
 
-Report the **resolved** host, not the production default — if `ADUP_GATEWAY_BASE` is set, an
-unreachable-host message naming `gateway.adup.io` sends the user to debug the wrong server.
+**A rejected key cannot fix itself.** Claude Code disables OAuth fallback whenever a connector
+carries a static Authorization header, so nothing will prompt the user to re-authenticate — the
+field has to be updated by hand. Say so plainly instead of suggesting they restart and retry.
 
-If no shops are returned (empty `accessible_shops`):
-"Your ADUP account is connected, but no shops have been assigned to you yet. Ask your agency owner to assign you to a client in the portal Team page."
+**Transient failure (`-32603`).** Not an auth problem. Central-api is briefly unavailable and the
+gateway already retried. Say so and suggest retrying in a moment — do NOT send the user to check
+their key, and do not offer to re-enter it.
+
+**No active plan (`-32003`).** The key is valid; the organisation has no active plan, so the gateway
+serves no tools. This is a billing answer — point at the portal, never at the key.
+
+**Server unreachable (connection refused or timeout).**
+"Cannot reach the ADUP gateway at `https://gateway.adup.io/mcp`. Check whether the service is up."
+
+**No shops returned (empty `accessible_shops`).**
+"Your ADUP account is connected, but no shops have been assigned to you yet. Ask your agency owner
+to assign you to a client in the portal Team page."

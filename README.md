@@ -19,15 +19,17 @@ Facebook Ads · Google Ads · Google Analytics 4 · Google Search Console · Lin
 claude plugin install adup --plugin-dir /path/to/adup-claude-plugin
 ```
 
-### 2. Set up your API key
+### 2. Enter your employee API key
 
-Once installed, run the setup skill — it will walk you through entering your API key and save it automatically:
+Enabling the plugin prompts for your **Employee API key**. Paste the personal `emp_…` key from
+[Tara → My MCP setup](https://tara.adup.io/my-mcp-setup). That is all the connector needs.
+
+Optional: run `/adup:setup` afterwards to deploy the scheduled reporting tasks and to store the key
+for the skills that call the ADUP API directly (client reports, proposals, creative uploads).
 
 ```
 /adup:setup
 ```
-
-Get your API key from [tara.adup.io/settings/api](https://tara.adup.io/settings/api).
 
 ### 3. Verify connection
 
@@ -42,40 +44,44 @@ The plugin ships **one** MCP connector, `adup`:
 | | |
 |---|---|
 | Name | `adup` |
-| URL | `${ADUP_GATEWAY_BASE:-https://gateway.adup.io}/mcp` |
-| Auth | `Authorization: Bearer ${ADUP_API_KEY}` |
+| URL | `https://gateway.adup.io/mcp` |
+| Auth | `Authorization: Bearer ${user_config.ADUP_API_KEY}` |
 
-That single connector aggregates every platform your shop has connected — there are
-no per-platform connectors to add. `/adup:setup` writes `ADUP_API_KEY` for you; if
-you set it by hand, `export ADUP_API_KEY=your_key_here` and restart Claude Code.
+That single connector aggregates every platform your shop has connected — there are no
+per-platform connectors to add.
+
+### Your key
+
+When you enable the plugin it asks for your **Employee API key** — the personal `emp_…` key from
+Tara → **My MCP setup**. The value is masked and stored in your OS keychain, and the connector
+reads it from there. To change it later, run `/adup:reset`.
+
+Before v1.7.0 the key came from an `ADUP_API_KEY` environment variable. That only ever worked in
+the Claude Code CLI: every other surface sent the literal string `${ADUP_API_KEY}` as the
+credential and the connector 401'd with no way to fix it from the UI.
 
 #### Non-production environments
 
-Production needs no configuration — the defaults point at it. To use a staging or dev
-key, set **both** hosts (the gateway serves the MCP tools, central-api serves reports
-and proposals — a mismatched pair leaves half the plugin 401ing):
+The connector URL is a literal, so the connector always points at production. A key belongs to
+exactly one environment, so a staging or dev key returns `invalid_token` here even though it is
+valid where it came from. Reaching another gateway needs a variant build of the plugin or a custom
+connector added by hand.
+
+`ADUP_API_BASE` still redirects the **direct** central-api calls the skills make (reports,
+proposals, creative assets, `/me/skills`) and defaults to production:
 
 ```bash
-# production (the default — the built-in values, set explicitly)
-export ADUP_GATEWAY_BASE=https://gateway.adup.io
-export ADUP_API_BASE=https://centralapi.adup.io
-
-# staging
-export ADUP_GATEWAY_BASE=https://gateway-staging.adup.io
-export ADUP_API_BASE=https://centralapi-staging.adup.io
-
-# dev
-export ADUP_GATEWAY_BASE=https://gateway.kodeia.com
-export ADUP_API_BASE=https://centralapi-dev.kodeia.com
+export ADUP_API_BASE=https://centralapi-staging.adup.io   # staging
+export ADUP_API_BASE=https://centralapi-dev.kodeia.com    # dev
 ```
 
-Always set **both** — the gateway serves the MCP tools, central-api serves the report,
-proposal and creative-asset endpoints the skills call directly. One without the other splits
-the plugin across two environments.
+Note this only moves half the plugin: MCP tools still answer from production. That split is a
+testing tool, not a supported configuration.
+
 
 A key belongs to exactly one environment: a staging key used against production returns
-`invalid_token` even though it is valid. `/adup:connect` reports which environment you
-are currently pointed at.
+`invalid_token` even though it is valid. `/adup:connect` tells you which failure you are looking at,
+and `/adup:reset` walks through replacing the key.
 
 ### Choosing which client you're working on
 
@@ -102,8 +108,9 @@ Google Ads prefix is `google_ads__`, not `google__`.
 ### Setup & Connection
 | Skill | Command | Description |
 |-------|---------|-------------|
-| Setup | `/adup:setup` | Configure your API key (run once after install) |
+| Setup | `/adup:setup` | Deploy scheduled tasks; store the key for direct API calls |
 | Connect | `/adup:connect` | Verify connection and see available shops |
+| Reset | `/adup:reset` | Change the employee API key, or clear a stale one |
 | Shop Select | `/adup:shop-select` | Switch active client (agencies) |
 | Sync Skills | `/adup:sync-skills` | Pull the skills your agency installed in the ADUP portal into your local Claude |
 
