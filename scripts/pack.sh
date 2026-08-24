@@ -84,26 +84,54 @@ if [ "$VERIFY" = "1" ]; then
   servers=$(python3 -c "import json;print(len(json.load(open('.mcp.json'))['mcpServers']))")
   [ "$servers" = "1" ] || note ".mcp.json declares $servers servers — the contract is ONE aggregated connector"
 
+  # The key must come from the plugin's own config field, NOT from a shell
+  # variable. `${ADUP_API_KEY}` only ever expanded in the Claude Code CLI; every
+  # GUI install (desktop upload, claude.ai connector) received the literal
+  # string and authenticated with it, so the connector 401'd with no way to fix
+  # it from the UI. `${user_config.KEY}` is filled from the field declared in
+  # plugin.json and resolves on every surface.
   key=$(python3 -c "
 import json
 h=json.load(open('.mcp.json'))['mcpServers'].get('adup',{}).get('headers',{})
 print(h.get('Authorization',''))")
   case "$key" in
-    'Bearer ${ADUP_API_KEY}') ;;
-    *) note ".mcp.json Authorization must be 'Bearer \${ADUP_API_KEY}', not a literal key (got: ${key:0:24}…)" ;;
+    'Bearer ${user_config.ADUP_API_KEY}') ;;
+    *) note ".mcp.json Authorization must be 'Bearer \${user_config.ADUP_API_KEY}', not a literal key or a shell variable (got: ${key:0:32}…)" ;;
   esac
 
-  # The connector URL must stay environment-overridable. A hardcoded host pins
-  # every install to production and is why there was no way to point the plugin
-  # at dev or staging without hand-editing the shipped file. Claude Code expands
-  # ${VAR:-default} in an http server's `url`, so the default keeps production
-  # zero-config while ADUP_GATEWAY_BASE retargets it.
+  # ...and the field it reads must actually be declared, or the header resolves
+  # to nothing and every request goes out unauthenticated.
+  python3 - <<'PY' || note "plugin.json must declare userConfig.ADUP_API_KEY as a required, sensitive string"
+import json, sys
+f = json.load(open('.claude-plugin/plugin.json')).get('userConfig', {}).get('ADUP_API_KEY')
+ok = (
+    isinstance(f, dict)
+    and f.get('type') == 'string'
+    and f.get('required') is True
+    and f.get('sensitive') is True
+    and f.get('title')
+    and f.get('description')
+)
+sys.exit(0 if ok else 1)
+PY
+
+  # The connector URL must be a LITERAL https URL.
+  #
+  # It used to be `${ADUP_GATEWAY_BASE:-https://gateway.adup.io}/mcp` so the
+  # environment could be retargeted. That expansion is a Claude Code CLI feature
+  # only: the claude.ai / desktop connector layer takes the string verbatim, and
+  # its own validator then rejects it ("URL must start with 'https'"), so the
+  # connector could not be added at all on those surfaces. Any shell-style
+  # placeholder here reintroduces that bug — hence the exact-match.
+  #
+  # The cost is that dev/staging can no longer be reached by exporting a
+  # variable; build a variant plugin or add a custom connector by hand instead.
   url=$(python3 -c "
 import json
 print(json.load(open('.mcp.json'))['mcpServers'].get('adup',{}).get('url',''))")
   case "$url" in
-    '${ADUP_GATEWAY_BASE:-https://gateway.adup.io}/mcp') ;;
-    *) note ".mcp.json url must be '\${ADUP_GATEWAY_BASE:-https://gateway.adup.io}/mcp' (got: $url)" ;;
+    'https://gateway.adup.io/mcp') ;;
+    *) note ".mcp.json url must be the literal 'https://gateway.adup.io/mcp' (got: $url)" ;;
   esac
 
   # A version bump is required whenever the shipped tree changed. Compare
