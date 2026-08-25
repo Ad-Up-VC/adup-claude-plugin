@@ -3,29 +3,33 @@
 **Role:** Claude Code plugin (`adup`, repo `adup-claude-plugin`) exposing the ADUP MCP connector and dynamically-registered skills.
 
 ## Phase 0 state
-Single `adup` connector in `.mcp.json`. 26 bundled skill directories. 1 agent (`adup-analyst.md`). Chat-stream references in skills cleaned.
+Single `adup` connector in `.mcp.json`. 28 bundled skill directories. 1 agent (`adup-analyst.md`). Chat-stream references in skills cleaned.
 
 ## .mcp.json — single aggregated connector
-ONE connector: `adup → ${ADUP_GATEWAY_BASE:-https://gateway.adup.io}/mcp`
-(auth `Authorization: Bearer ${ADUP_API_KEY}`).
+ONE connector: `adup → https://gateway.adup.io/mcp`
+(auth `Authorization: Bearer ${user_config.ADUP_API_KEY}`).
 
-### Environments — always set the pair, or neither
-Claude Code expands `${VAR:-default}` in an http server's `url` and `headers`, so the connector
-retargets by env var; the built-in defaults ARE production, so an install with nothing set
-still works. Setup writes the production pair explicitly anyway — switching back from staging or
-dev then overwrites rather than having to delete an override from three separate places.
+### The key comes from plugin config, not the environment
+`plugin.json` declares `userConfig.ADUP_API_KEY` (string, required, sensitive). Claude Code prompts
+for it at enable time, masks it, stores it in the keychain, and substitutes it into the connector
+header. `pack.sh --verify` asserts both halves — the literal URL and the `${user_config.…}` header —
+plus the presence of the declaration, because either half alone ships a connector that cannot
+authenticate.
 
-| environment | `ADUP_GATEWAY_BASE` | `ADUP_API_BASE` |
-|---|---|---|
-| **production** (default) | `https://gateway.adup.io` | `https://centralapi.adup.io` |
-| staging | `https://gateway-staging.adup.io` | `https://centralapi-staging.adup.io` |
-| dev | `https://gateway.kodeia.com` | `https://centralapi-dev.kodeia.com` |
+**Why not an env var.** `${ADUP_API_KEY}` and `${ADUP_GATEWAY_BASE:-…}` expand in the Claude Code
+CLI only. On claude.ai and the desktop app the literal string was used as the URL and the
+credential: the connector dialog rejected the URL outright ("URL must start with 'https'") and the
+header authenticated with the placeholder text. Measured 2026-08-24.
 
-`ADUP_GATEWAY_BASE` moves the MCP connector; `ADUP_API_BASE` moves the direct HTTP calls the
-skills make (reports, proposals, creative assets, `/me/skills`). **Setting only one splits the
-plugin across two environments** — MCP tools answer from one and the report/proposal endpoints
-401 from the other, which reads as "some of it works". `pack.sh --verify` enforces that the
-connector url keeps the overridable form so a hardcoded host cannot ship again.
+### Environments
+The connector URL is literal, so the plugin always talks to the production gateway.
+`ADUP_API_BASE` still moves the direct HTTP calls the skills make (reports, proposals, creative
+assets, `/me/skills`) and defaults to `https://centralapi.adup.io`; staging is
+`https://centralapi-staging.adup.io`, dev is `https://centralapi-dev.kodeia.com`. Moving it alone
+splits the plugin across two environments — MCP tools from production, report/proposal endpoints
+from elsewhere — so treat it as a testing tool only.
+
+`ADUP_GATEWAY_BASE` is **dead**. `/adup:reset` clears leftovers; nothing writes it.
 
 ⚠️ **A key belongs to exactly ONE environment.** A staging key against production returns
 `invalid_token` while being perfectly valid — check the environment before blaming the key.
@@ -54,27 +58,23 @@ marketplace: the branch is an integration tier where a change is verified before
 `main`, and publishing still means merging to `main`.
 
 To test a `staging`-branch build before it is published, install from the working tree
-(`--plugin-dir`) or unpack `adup-staging.plugin` — do not expect `/plugin marketplace update`
-to see it.
+(`--plugin-dir`) — do not expect `/plugin marketplace update` to see it.
 
 ## The marketplace is public — production only
 `.claude-plugin/marketplace.json` is the PUBLIC distribution channel. Anyone who adds this repo
 as a marketplace is offered every plugin listed in it, customers included. **It lists `adup` and
-only `adup`.** `pack.sh --verify` fails if `adup-staging` ever appears there again.
+only `adup`**, and `pack.sh --verify` fails if anything else appears there.
 
-`adup-staging` is INTERNAL. Two ways for staff to install it, neither of them ever shown to a
-customer:
+**Testing against staging** no longer works by env var alone: since v1.7.0 the connector URL is a
+literal, so `ADUP_API_BASE` moves only the direct central-api calls while MCP tools keep answering
+from production. A real staging test needs a variant build of the plugin (literal staging URL) or a
+custom connector added by hand. A staging **employee key** is still required either way.
 
-```bash
-claude --plugin-dir ./adup-staging       # from a checkout
-```
-…or upload `adup-staging.plugin` in the desktop app.
-
-> History: 0eac391 (2026-08-03) listed staging publicly on the reasoning that its description
-> ("For ADUP staff testing…") would keep customers away. On 2026-08-10 a customer adding the repo
-> URL was shown an **Adup staging** install card. A description is not an access control. Do not
-> re-list it — if a tester needs an easier install, give them the `--plugin-dir` line, not a
-> marketplace entry.
+> History: a separate internal `adup-staging` plugin variant used to be generated (`make-staging.sh`)
+> and committed alongside `adup` as `./adup-staging` + `adup-staging.plugin`. It was listed publicly
+> once (0eac391, 2026-08-03) and a customer was shown an **Adup staging** install card on 2026-08-10
+> — a description is not an access control. The whole variant (tree, bundle, generator, and its
+> pack/CI wiring) was removed on 2026-08-21; the env-var override above replaces it.
 
 ## Shop-change tool renewal
 After `set_active_shop`, the gateway emits `notifications/tools/list_changed`, but
@@ -191,6 +191,20 @@ The `/api/v1/me/skills` endpoint returns:
 - Org-private skills the org owners have authored.
 - Each item: `{ id, name, slug, description, category, platform, content, version, is_public, custom_config }`.
 
+## Approval rules are not readable with an employee key
+No tool and no gateway route reachable with an `emp_` key returns an organisation's approval
+settings, auto-approval rules, or action audit log — `/actions/{shop}/settings`, `/rules` and
+`/audit-log` all answer `Unauthenticated.` for one. That is deliberate (those routes forward
+the employee Bearer to central-api's dashboard surface, which is session-authed; see
+`tara-gateway/src/routes/actions.js`), so **never build a skill that reads them**. The
+consequence to design around: a skill cannot know whether a proposal will wait for a human or
+be auto-approved, so it must not promise the user that a write will be reviewed — only that it
+has been filed. Confirmed live 2026-08-24.
+
+Related, from the same run: a write call with **no content at all** (no entity, no value —
+`reasoning` alone does not count) is refused with `-32602` and files nothing. Anything that
+names an entity or supplies a value still files, `reasoning` or not.
+
 ## Bundled skills (27 directories)
 `ad-fatigue`, `ads-overview`, `analytics`, `anomaly-alerts`, `blended-roas`, `budget-tracker`, `client-report`, `connect`, `create-ads`, `creative-import`, `creative-intelligence`, `creative-launch`, `creative-status`, `creative-workspace`, `cross-platform`, `facebook-ads`, `google-ads`, `google-optimize`, `inspiration`, `linkedin-optimize`, `manage-status`, `monday-briefing`, `optimize-budget`, `setup`, `shop-select`, `sync-skills`, `tiktok-optimize`.
 
@@ -199,13 +213,13 @@ Skills are registered by directory presence (`skills/*/SKILL.md`); the slash-com
 ## Creative workspace family (v1.2.0)
 Local-folder bulk ad launching (folders + markdown = source of truth):
 - `skills/creative-workspace/` — `/adup:creative-workspace` init (scaffold BRAND.md, `.adup/workspace.json` with shop_slug + defaults incl. the one-time `enhancements: off|ask|on` answer, assets/, campaigns/ example) + doctor (structural checks, report-only). Ships shared resources: `specs/platform-specs.json` (per-platform ratio/px/mb/duration/text-limit matrix, `_meta.verified_at` for re-verification) and `scripts/inspect.sh` (file → JSON metadata via sips/identify/ffprobe + sha256) / `scripts/upload.sh` (checksum-dedup multipart upload to central-api creative-assets).
-- `skills/creative-launch/` — `/adup:launch`: validate (specs + inspect.sh) → upload (central-api `POST /api/v1/shops/{slug}/creative-assets`, `from-url` for Drive links, sha256 dedup via `.adup/state.json` + `?checksum=`) → one uuid batch_id → fan out proposals per ad × platform × language (`facebook__ads_ad_create`/`facebook__ads_creative_create`, `tiktok__propose_create_campaign` / `tiktok__propose_create_adgroup` / `tiktok__propose_create_ad`, `google_ads__propose_google_create_rsa` text ads, `linkedin__propose_linkedin_create_ad`; >3 ads on one platform → one `{platform}__propose_bulk_launch` call, 50 cap) → write back state + `status: proposed`. Every proposal embeds `metadata.platform_targets` (merged from the campaign `map:` blocks, all platforms) so the portal's approve-time "also launch on X" tick can auto-create replicas. Count confirmation before proposing; ONLY image-downscale auto-fix (with confirmation); never auto-truncates copy. Creation supported: facebook, tiktok, google (RSA text only), linkedin; snapchat degrades gracefully until its executor ships.
+- `skills/creative-launch/` — `/adup:launch`: validate (specs + inspect.sh) → upload (central-api `POST /api/v1/shops/{slug}/creative-assets`, `from-url` for Drive links, sha256 dedup via `.adup/state.json` + `?checksum=`) → one uuid batch_id → fan out proposals per ad × platform × language (`facebook__propose_create_ad`/`facebook__propose_bulk_launch` — never the direct `facebook__ads_*_create` tools, which bypass the approval queue; `tiktok__propose_create_campaign` / `tiktok__propose_create_adgroup` / `tiktok__propose_create_ad`, `google_ads__propose_google_create_rsa` text ads, `linkedin__propose_linkedin_create_ad`; >3 ads on one platform → one `{platform}__propose_bulk_launch` call, 50 cap) → write back state + `status: proposed`. Every proposal embeds `metadata.platform_targets` (merged from the campaign `map:` blocks, all platforms) so the portal's approve-time "also launch on X" tick can auto-create replicas. Count confirmation before proposing; ONLY image-downscale auto-fix (with confirmation); never auto-truncates copy. Creation supported: facebook, tiktok, google (RSA text only), linkedin; snapchat degrades gracefully until its executor ships.
 - **Detection-first media** (v1.2.x): files can be named ANYTHING — ratio/format come from actual pixels/duration (inspect.sh locally, server metadata after upload). Grouping: explicit `creative:` list/folder → stem-similarity clustering → one confirmation table on ambiguity. Filename ratio tokens are an optional hint; on contradiction detection wins with a warning (never an error).
   - **Two ratio notations, always translate.** central-api returns `aspect_ratio` in colon form (`1:1`, `4:5`, `1.91:1`); `inspect.sh` and `specs/platform-specs.json` key on the x-form (`1x1`, `4x5`, `191x100`). Convert via `_meta.ratio_notation` in `platform-specs.json` — comparing the raw strings matches nothing and would silently pass every placement check. A server value absent from that map (e.g. `7:3`) is `other`.
 - `skills/creative-status/` — `/adup:status`: central-api `GET /api/v2/employee/tara/proposals?shop_slug=` → state.json + ad.md status sync, denial notes → `## Review feedback`, board output, `--csv` / `--sheet` exports. Also drains pending replication requests (`GET /api/v2/employee/tara/actions/replication-requests`) — reviewer ticked "also launch on X" in the portal → skill prepares + launches for that platform, then PATCHes the request fulfilled/dismissed.
   - **Employee keys authenticate against `/api/v2/employee/tara/…` only.** The gateway also proxies these as `{gateway}/actions/{shop}/proposals…`, but that proxy targeted central-api's seller-JWT *dashboard* routes until tara-gateway PR #90 — so on an older gateway it answers `401 Unauthenticated.` Calling central-api directly works on any gateway version, which is why the skill does. Response shapes differ: the list is a Laravel paginator (`data.data[]`), the single GET returns `data.proposal`.
 - `skills/creative-import/` — `/adup:creative-import` winner (insights → pull copy → ask for source file → draft ad.md for NEW platforms) and sheet (CSV/xlsx copy-matrix → ad.md files, interactive column mapping, one-way).
-- API bases: central-api `${ADUP_API_BASE:-https://centralapi.adup.io}`, gateway `${ADUP_GATEWAY_BASE:-https://gateway.adup.io}`.
+- API bases: central-api `${ADUP_API_BASE:-https://centralapi.adup.io}` (bash-level calls); the gateway is the literal `https://gateway.adup.io`.
 - HARD INVARIANT (restated in every launch-adjacent skill): nothing reaches an ad platform before portal approval; approved ads always land PAUSED.
 
 ## Removed/cleaned (Phase 0)
