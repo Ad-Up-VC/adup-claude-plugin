@@ -56,10 +56,11 @@ Two connectors exist beyond it, and only if you need them:
 
 ### Environments
 
-Production needs no configuration. If you are on an internal environment, set
-`ADUP_GATEWAY_BASE` **and** `ADUP_API_BASE` together — the gateway serves the MCP tools,
-central-api serves reports, proposals and creative assets. Setting only one splits the plugin
-across two environments and reads as "half of it works". See `README.md` for the host pairs.
+Production needs no configuration, and the connector cannot be moved off it — its URL is a
+literal. `ADUP_API_BASE` redirects only the direct central-api calls (reports, proposals, creative
+assets), so setting it splits the plugin across two environments: MCP tools from production,
+everything else from wherever you pointed it. Useful for testing, not a supported setup. See
+`README.md`.
 
 **A key belongs to exactly one environment.** A key from another environment returns
 `invalid_token` while being perfectly valid — check the environment before blaming the key.
@@ -202,11 +203,15 @@ proposal in the agency's action queue** rather than executing:
 - **Always send `reasoning`** — it is what the human approver reads before approving or denying.
   The four `{platform}__propose_bulk_launch` tools call it **`shared_reasoning`** instead (it
   applies to every proposal in the batch).
-  ⚠️ **Nothing enforces this.** The tool schemas mark `reasoning` as required, but the gateway
-  builds the proposal from your arguments *before* the tool itself ever validates them — so a
-  write with no `reasoning` does **not** error. It files a proposal with no rationale, and the
-  approver sees a budget or status change with nothing explaining it. Verified live on staging.
-  Treat `reasoning` as your responsibility, not the platform's.
+  ⚠️ **Almost nothing enforces this.** The tool schemas mark `reasoning` as required, but the
+  gateway builds the proposal from your arguments *before* the tool itself ever validates them —
+  so a write that names an entity and a value but omits `reasoning` does **not** error. It files
+  a proposal with no rationale, and the approver sees a budget or status change with nothing
+  explaining it. Verified live on staging. Treat `reasoning` as your responsibility, not the
+  platform's.
+  The one case that *is* refused is a call with **no content at all** — no entity to act on and
+  no value to propose. That returns `-32602` and files nothing. Passing only `reasoning` counts
+  as no content, so it is refused too.
 - A proposal returns `proposal_id` and `status`. Nothing changes until someone approves it in
   the portal.
 - **Ads default to `status: "PAUSED"`.** The ADUP skills always propose PAUSED, but the
@@ -231,6 +236,20 @@ any of these as a whole underscore-separated token —
 `reply`, `move`, `start`, `stop`
 
 Treat any tool matching that list as live-fire unless you know your organisation's policy.
+
+### You cannot read the approval rules from here
+
+There is no tool, and no gateway route reachable with an ADUP API key, that returns an
+organisation's **approval settings, auto-approval rules, or action audit log**. Those live behind
+the portal's own session auth, and `/actions/{shop}/settings`, `/actions/{shop}/rules` and
+`/actions/{shop}/audit-log` answer `Unauthenticated.` for an `emp_` key. This is deliberate, not
+an outage — do not build a skill that depends on reading them.
+
+The practical consequence: **you cannot tell in advance whether a proposal will wait for a human
+or be auto-approved and executed.** An organisation may have rules that approve certain changes
+automatically. So do not describe a proposal to the user as "safe because someone will review
+it" — say that it has been filed for review, and let the portal be the authority on what happens
+next. If a user needs to know their auto-approval rules, point them at the portal.
 
 ---
 

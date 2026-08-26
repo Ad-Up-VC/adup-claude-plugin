@@ -1,11 +1,11 @@
 ---
 name: creative-import
-description: Import ads INTO a local creative workspace from two sources — a winning ad on a connected platform (import-winner, to relaunch it cross-platform) or a Google Sheets/CSV/xlsx copy matrix (import-sheet, bulk intake). Creates draft ad.md files; /adup:launch does the actual proposing. One-way import — workspace folders stay the source of truth.
+description: Import ads INTO a local creative workspace from two sources — a winning ad on a connected platform (import-winner, to relaunch it cross-platform) or a Google Sheets/CSV/xlsx copy matrix (import-sheet, bulk intake). Creates draft ad.md files; /adup:creative-launch does the actual proposing. One-way import — workspace folders stay the source of truth.
 ---
 
 # Creative Import (/adup:creative-import)
 
-Two modes, both ending in **draft `ad.md` files** that `/adup:launch` picks up:
+Two modes, both ending in **draft `ad.md` files** that `/adup:creative-launch` picks up:
 
 - `winner` — "this Facebook ad is crushing it, put it on TikTok too"
 - `sheet` — "here's our launch spreadsheet, build the workspace from it"
@@ -73,7 +73,7 @@ Adapt copy to the destination platform's limits only as a **suggestion** (e.g. T
 
 Summarize what was created and finish with:
 
-> Draft ready. Review the copy, fill in `map:` target ids in `_adset.md`, then run `/adup:launch <ad folder>` — that will validate, upload, and create the approval proposals (everything lands PAUSED after approval).
+> Draft ready. Review the copy, fill in `map:` target ids in `_adset.md`, then run `/adup:creative-launch <ad folder>` — that will validate, upload, and create the approval proposals (everything lands PAUSED after approval).
 
 ---
 
@@ -115,14 +115,14 @@ Imported 18 ads into 2 campaigns / 5 ad sets (from launch-plan.xlsx)
   - 6 ads need media files in assets/: hero-a, hero-b, ...
   - TODO: fill map: target ids in 2 _campaign.md / 5 _adset.md files
 
-Next: add the missing media, fill the map ids, then /adup:launch.
+Next: add the missing media, fill the map ids, then /adup:creative-launch.
 ```
 
-Remind: the sheet was a one-time intake — future edits happen in the workspace files (use `/adup:status --csv|--sheet` for reporting back out).
+Remind: the sheet was a one-time intake — future edits happen in the workspace files (use `/adup:creative-status --csv|--sheet` for reporting back out).
 
 ## Rules
 
-1. **This skill never launches anything.** It only writes local draft files; `/adup:launch` owns validation, upload, and proposals (which land PAUSED after approval).
+1. **This skill never launches anything.** It only writes local draft files; `/adup:creative-launch` owns validation, upload, and proposals (which land PAUSED after approval).
 2. **One-way import** — never sync workspace changes back into the sheet, and never re-import a sheet over edited ads without per-file confirmation.
 3. **Ask for originals** — never silently use platform renditions as source creative.
 4. **Interactive column mapping** — never guess silently on ambiguous columns.

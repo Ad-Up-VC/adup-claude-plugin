@@ -1,13 +1,13 @@
 ---
-name: status
+name: creative-status
 description: Sync proposal and ad statuses from the ADUP approval queue back into a local creative workspace. Updates state.json and ad.md status fields, writes denial notes into Review feedback sections, handles reviewer replication requests ("also launch on X"), and prints a campaign board. Supports --csv (status.csv for stakeholders) and --sheet (write to a connected Google Sheets MCP).
 ---
 
-# Creative Status (/adup:status)
+# Creative Status (/adup:creative-status)
 
 Pulls the current status of every proposal a workspace has launched and writes it back into the files. The workspace stays the source of truth for *content*; the ADUP platform is the source of truth for *approval state* — this skill is the one-way sync from platform → files (plus fulfilment of reviewer **replication requests**, Step 4, which routes through the normal launch flow with the user's confirmation).
 
-Usage: `/adup:status [path] [--csv] [--sheet]`
+Usage: `/adup:creative-status [path] [--csv] [--sheet]`
 
 Reminder to surface when reporting: approved ads are created on the platform in **PAUSED** state — approval never means spending has started.
 
@@ -16,7 +16,7 @@ Reminder to surface when reporting: approved ads are created on the platform in 
 ## Step 1 — Load the ledger
 
 1. Find the workspace root (walk up to `.adup/workspace.json`); read `workspace.json` and `state.json`. The `shop_slug` in `workspace.json` is the shop for this whole run — it goes into the `<shop_slug>` path segment of every request below, and into `shop_slug="<slug>"` on any MCP tool call. Never depend on the gateway's ambient active shop here: it is set per API key and a concurrent run can clobber it.
-2. Collect every `targets` entry across `state.json` `ads`: `(ad_path, platform, lang, proposal_id, last_known_status)`. Nothing recorded → say "nothing launched yet — run /adup:launch" and stop.
+2. Collect every `targets` entry across `state.json` `ads`: `(ad_path, platform, lang, proposal_id, last_known_status)`. Nothing recorded → say "nothing launched yet — run /adup:creative-launch" and stop.
 
 ## Step 2 — Query proposal statuses
 
@@ -36,7 +36,7 @@ curl -s -H "Authorization: Bearer $ADUP_API_KEY" -H "Accept: application/json" \
 
 **Response shapes differ between the two — do not assume.** The list returns a Laravel paginator, so the rows are at `data.data[]`; the single-proposal GET returns `data.proposal`. A denial note is on `review_notes`.
 
-> Employee API keys (`emp_…`) authenticate against `/api/v2/employee/tara/…` only. The gateway also proxies these as `${ADUP_GATEWAY_BASE}/actions/<shop_slug>/proposals…`, but that proxy targeted central-api's **seller-JWT dashboard** routes until tara-gateway PR #90, so on any gateway older than that it answers `401 Unauthenticated.` Calling central-api directly works regardless of which gateway version is deployed, so prefer it here.
+> Employee API keys (`emp_…`) authenticate against `/api/v2/employee/tara/…` only. The gateway also proxies these as `https://gateway.adup.io/actions/<shop_slug>/proposals…`, but that proxy targeted central-api's **seller-JWT dashboard** routes until tara-gateway PR #90, so on any gateway older than that it answers `401 Unauthenticated.` Calling central-api directly works regardless of which gateway version is deployed, so prefer it here.
 
 Map platform statuses to workspace lifecycle statuses:
 
@@ -62,7 +62,7 @@ An ad.md gets the "worst" status of its targets (any denial → `changes_request
    - [2026-07-03, facebook/en] Denied by j.doe: "Headline overpromises — drop the 50% claim."
    ```
 
-   Never overwrite existing feedback entries; append new ones. After the user edits the copy, `/adup:launch` picks the ad up again (content hash changed) and re-proposes it.
+   Never overwrite existing feedback entries; append new ones. After the user edits the copy, `/adup:creative-launch` picks the ad up again (content hash changed) and re-proposes it.
 
 ## Step 4 — Replication requests ("also launch on X")
 
@@ -78,7 +78,7 @@ Each row carries `{id, platform, source_proposal (summary incl. entity_name + cr
 1. **Announce it**: "Reviewer asked to also launch '<entity_name>' on {platform}" (+ the reviewer's `notes`, if any).
 2. **Locate the source ad**: match the source proposal id against `state.json` `targets`. If the source isn't in this workspace, say so and offer to scaffold a fresh ad folder from the request's creative preview + copy.
 3. **Scaffold/adjust the `ad.md`**: add the platform to `platforms:`. If the source copy exceeds the target platform's limits (platform-specs.json), **draft platform-fit copy as a qualified section** (e.g. `## Primary text (tiktok)`) and **propose it to the user — never adjust copy silently**.
-4. **Launch**: with the user's go-ahead, run the normal `/adup:launch` flow for that ad scoped to the requested platform (validate → upload → propose; same batch/count-confirmation rules). The proposal calls are namespaced `platform__tool` and each carries the workspace's `shop_slug="<slug>"` explicitly — a replication write must never land on another client.
+4. **Launch**: with the user's go-ahead, run the normal `/adup:creative-launch` flow for that ad scoped to the requested platform (validate → upload → propose; same batch/count-confirmation rules). The proposal calls are namespaced `platform__tool` and each carries the workspace's `shop_slug="<slug>"` explicitly — a replication write must never land on another client.
 5. **Close the request**:
 
    ```bash
@@ -127,7 +127,7 @@ Same table as `--csv`, but pushed to a spreadsheet: if a Google Sheets MCP (or G
 
 ## Rules
 
-1. **One-way sync for statuses**: platform state → files. This skill never approves or denies proposals, and the only proposals it ever creates are replication-request fulfilments (Step 4) — explicitly user-confirmed and routed through the normal `/adup:launch` flow and approval queue.
+1. **One-way sync for statuses**: platform state → files. This skill never approves or denies proposals, and the only proposals it ever creates are replication-request fulfilments (Step 4) — explicitly user-confirmed and routed through the normal `/adup:creative-launch` flow and approval queue.
 2. **Never edit copy silently** — status sync touches only the `status:` frontmatter field and the `## Review feedback` section; replication scaffolding may add `platforms:` entries and user-approved copy variant sections, nothing else.
 3. **Preserve unknown state**: if the gateway is unreachable, report the error and leave all files untouched.
 4. **Restate the PAUSED invariant** whenever anything reaches `live`.

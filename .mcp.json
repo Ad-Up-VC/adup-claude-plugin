@@ -2,9 +2,9 @@
   "mcpServers": {
     "adup": {
       "type": "http",
-      "url": "${ADUP_GATEWAY_BASE:-https://gateway.adup.io}/mcp",
+      "url": "https://gateway.adup.io/mcp",
       "headers": {
-        "Authorization": "Bearer ${ADUP_API_KEY}"
+        "Authorization": "Bearer ${user_config.ADUP_API_KEY}"
       }
     }
   }

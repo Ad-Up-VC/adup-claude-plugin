@@ -5,7 +5,7 @@ description: Propose creating new Facebook ads within existing ad sets through t
 
 # Ad Creation
 
-> **Launching multiple ads, working from local creative files, or going cross-platform (Facebook + TikTok)?** Use the creative workspace skill family instead: `/adup:creative-workspace init` to set up a local workspace, `/adup:launch` to validate/upload/propose in bulk, `/adup:status` to sync approval state back, `/adup:creative-import` to import winners or spreadsheets. This skill remains the quick path for creating a **single ad into an existing ad set** conversationally.
+> **Launching multiple ads, working from local creative files, or going cross-platform (Facebook + TikTok)?** Use the creative workspace skill family instead: `/adup:creative-workspace init` to set up a local workspace, `/adup:creative-launch` to validate/upload/propose in bulk, `/adup:creative-status` to sync approval state back, `/adup:creative-import` to import winners or spreadsheets. This skill remains the quick path for creating a **single ad into an existing ad set** conversationally.
 
 ## Pre-flight
 - Resolve shop context in all three steps: (1) `list_shops` to see the brands and their connected platforms, (2) `set_active_shop(shop_slug="<slug>")` — **required for tool discovery**, an agency key sees only the six virtual tools until a shop is active, (3) pass `shop_slug="<slug>"` explicitly on every data/action call below

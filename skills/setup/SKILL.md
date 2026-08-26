@@ -1,11 +1,17 @@
 ---
 name: setup
-description: Set up your ADUP API key, connect to your marketing data, and automatically deploy all scheduled monitoring, optimization, and reporting tasks. Run this once when you first install the plugin, or any time you need to update your key or re-deploy tasks.
+description: Deploy the scheduled monitoring, optimization and reporting tasks, and store your key for the skills that call central-api directly. The connector itself takes its key from the plugin's Employee API key field, not from here — use /adup:reset to change that.
 ---
 
 # ADUP Setup
 
-Full setup wizard: API key configuration, connection verification, report folder creation, and automatic deployment of all 14 scheduled tasks.
+Connection verification, report folder creation, and deployment of all 14 scheduled tasks.
+
+> **The connector no longer gets its key from here.** Since v1.7.0 the MCP connector reads the
+> plugin's own **Employee API key** config field, filled in when the plugin was enabled — a shell
+> variable never reached it on any GUI install. What this skill still writes is the copy used by the
+> skills that call central-api directly over bash (client reports, proposals, creative uploads), so
+> it is **optional** unless the user needs those. To change the connector's key, use `/adup:reset`.
 
 ## Steps
 
@@ -55,39 +61,34 @@ Wait for them to paste the key. Keys start with `emp_` followed by a 40-characte
 explicitly says they are on staging or dev, or when their key fails to authenticate against
 production in Step 4 (a key is issued by ONE environment and authenticates against that one only).
 
-| environment | `ADUP_GATEWAY_BASE` | `ADUP_API_BASE` |
-|---|---|---|
-| **production** (default) | `https://gateway.adup.io` | `https://centralapi.adup.io` |
-| staging | `https://gateway-staging.adup.io` | `https://centralapi-staging.adup.io` |
-| dev | `https://gateway.kodeia.com` | `https://centralapi-dev.kodeia.com` |
+| environment | `ADUP_API_BASE` |
+|---|---|
+| **production** (default) | `https://centralapi.adup.io` |
+| staging | `https://centralapi-staging.adup.io` |
+| dev | `https://centralapi-dev.kodeia.com` |
 
-**Set the production pair explicitly** — do not rely on leaving it unset. Both resolve to exactly
-the same hosts (`.mcp.json` and every skill already default to production, and setting the value
-that equals the default is a no-op), so this costs nothing. What it buys:
+`ADUP_GATEWAY_BASE` is gone. It used to retarget the connector through a `${VAR:-default}` in
+`.mcp.json`, but that expansion only ever worked in the Claude Code CLI — on every other surface the
+literal string was sent as the URL and the connector could not be added at all. The connector URL is
+now the literal `https://gateway.adup.io/mcp`, so **this skill can no longer move the connector to
+another environment**; only the direct central-api calls follow `ADUP_API_BASE`.
 
-- **Switching back from staging or dev is an overwrite, not a delete.** The overrides live in three
-  places — a LaunchAgent plist, `~/.claude/settings.json` and the shell profile — and *removing* a
-  value from all three is far easier to get half-right than *replacing* it. A single leftover
-  `ADUP_GATEWAY_BASE=…kodeia.com` points the connector at dev while everything else says
-  production, which presents as "my key stopped working".
-- **`echo $ADUP_GATEWAY_BASE` answers "which environment am I on?"** An empty result is ambiguous —
-  it could mean production, or it could mean the variable never got set on this surface.
+That means a non-production setup is now a **split**: MCP tools answer from production while the
+report/proposal endpoints answer from staging or dev. Say so out loud if the user asks for a
+non-production environment — testing another environment properly needs a variant build of the
+plugin or a hand-added custom connector.
 
-An existing install with nothing set stays on production and keeps working; this is about what
-setup writes from now on.
-
-**The two must always be set as a pair.** The gateway serves the MCP tools; central-api serves
-the report/proposal/creative-asset endpoints the skills call directly. A mismatched pair
-authenticates against one environment and 401s against the other, which reads as "some things
-work and some don't" and is painful to diagnose.
+**Set the production value explicitly** rather than leaving it unset: switching back from staging or
+dev then becomes an overwrite instead of a delete across three stores, and `echo $ADUP_API_BASE`
+answers "which environment am I on?" unambiguously.
 
 ### 3. Save the key
 
 Save the settings using **three methods** so they work across all Claude surfaces (Cowork desktop app, Claude Code CLI, terminal). Run all three blocks.
 
-**What to save.** `ADUP_API_KEY` plus the `ADUP_GATEWAY_BASE` + `ADUP_API_BASE` pair for the
-environment chosen in Step 2b — **always both hosts, including on production**. Set `ADUP_VARS`
-once here and every block below reads it.
+**What to save.** `ADUP_API_KEY` plus `ADUP_API_BASE` for the environment chosen in Step 2b —
+including on production. Set `ADUP_VARS` once here and every block below reads it. This copy feeds
+the bash-level central-api calls only; the connector takes its key from the plugin config field.
 
 `ADUP_VARS` is an **array**, and every block below iterates it as `"${ADUP_VARS[@]}"`. That is not
 stylistic: macOS defaults to **zsh**, which does *not* word-split an unquoted `$VAR`, so a
@@ -99,11 +100,11 @@ bash and zsh.
 API_KEY="<KEY_FROM_USER>"
 
 # Production — the default. Keep this line unless Step 2b said otherwise.
-ADUP_VARS=("ADUP_API_KEY=$API_KEY" "ADUP_GATEWAY_BASE=https://gateway.adup.io" "ADUP_API_BASE=https://centralapi.adup.io")
+ADUP_VARS=("ADUP_API_KEY=$API_KEY" "ADUP_API_BASE=https://centralapi.adup.io")
 
 # Staging / dev — REPLACE the line above with ONE of these, matching Step 2b.
-# ADUP_VARS=("ADUP_API_KEY=$API_KEY" "ADUP_GATEWAY_BASE=https://gateway-staging.adup.io" "ADUP_API_BASE=https://centralapi-staging.adup.io")
-# ADUP_VARS=("ADUP_API_KEY=$API_KEY" "ADUP_GATEWAY_BASE=https://gateway.kodeia.com" "ADUP_API_BASE=https://centralapi-dev.kodeia.com")
+# ADUP_VARS=("ADUP_API_KEY=$API_KEY" "ADUP_API_BASE=https://centralapi-staging.adup.io")
+# ADUP_VARS=("ADUP_API_KEY=$API_KEY" "ADUP_API_BASE=https://centralapi-dev.kodeia.com")
 ```
 
 #### 3a. macOS LaunchAgent — the critical one for desktop apps
@@ -115,8 +116,9 @@ LAUNCH_AGENTS_DIR="$HOME/Library/LaunchAgents"
 mkdir -p "$LAUNCH_AGENTS_DIR"
 
 # Clear any plist from a previous run so switching environments does not leave a
-# stale ADUP_GATEWAY_BASE behind — that is the failure that looks like "my key
-# stopped working" when it is really pointing at the wrong environment.
+# stale host behind — that is the failure that looks like "my key stopped
+# working" when it is really pointing at the wrong environment. This also
+# removes the dead ADUP_GATEWAY_BASE plists left by pre-1.7.0 installs.
 for OLD in "$LAUNCH_AGENTS_DIR"/io.adup.env.*.plist; do
   [ -e "$OLD" ] || continue
   VAR_OLD="$(basename "$OLD" .plist)"; VAR_OLD="${VAR_OLD#io.adup.env.}"
@@ -172,7 +174,7 @@ except (FileNotFoundError, json.JSONDecodeError):
 env = settings.setdefault("env", {})
 # Drop any ADUP_* host overrides from a previous run before applying the new
 # set, so switching back to production actually clears them.
-for stale in ("ADUP_GATEWAY_BASE", "ADUP_API_BASE"):
+for stale in ("ADUP_GATEWAY_BASE", "ADUP_API_BASE"):  # GATEWAY_BASE is dead — clear, never write
     env.pop(stale, None)
 env.update(pairs)
 
@@ -236,9 +238,9 @@ If it fails with an auth error (`invalid_token` / 401), there are **two** likely
 second before sending the user back to their agency owner:
 
 1. **Wrong environment.** A key is issued by ONE environment and authenticates only against that
-   one. A staging or dev key hits production by default and returns `invalid_token` even though it
-   is perfectly valid. If the user got their key from a non-production portal, go back to Step 2b,
-   set the matching `ADUP_GATEWAY_BASE` + `ADUP_API_BASE` pair, re-run Step 3 and retry.
+   one. A staging or dev key returns `invalid_token` against production even though it is perfectly
+   valid. The connector is pinned to production, so this cannot be fixed by setting a variable —
+   the user needs a production key, or a variant build pointed at their environment.
 2. **The key really is invalid:**
    > The key doesn't seem to be valid. Ask your agency owner to verify your invitation in the portal Team page, or to regenerate your key.
 
