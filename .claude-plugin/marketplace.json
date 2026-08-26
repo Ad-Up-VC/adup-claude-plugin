@@ -6,14 +6,14 @@
   },
   "metadata": {
     "description": "Marketing analytics skills for Claude Code \u2014 Facebook Ads, Google Ads, GA4, LinkedIn, TikTok, and more.",
-    "version": "1.7.0"
+    "version": "1.7.1"
   },
   "plugins": [
     {
       "name": "adup",
       "source": "./",
       "description": "Connect Claude Code to your entire marketing stack. Query Facebook Ads, Google Ads, GA4, Google Search Console, LinkedIn Ads, HubSpot, and Intercom using natural language.",
-      "version": "1.7.0",
+      "version": "1.7.1",
       "author": {
         "name": "ADUP",
         "email": "info@adup.io"

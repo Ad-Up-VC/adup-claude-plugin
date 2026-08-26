@@ -1,15 +1,15 @@
 ---
-name: launch
+name: creative-launch
 description: Launch ads from a local creative workspace — validate copy and media against platform specs, upload assets to ADUP, and fan out ad-creation PROPOSALS per ad x platform x language in one batch. Nothing touches an ad platform until each proposal is approved in the ADUP portal, and approved ads always land PAUSED.
 ---
 
-# Creative Launch (/adup:launch)
+# Creative Launch (/adup:creative-launch)
 
 Turns `ad.md` files in a creative workspace into ad-creation proposals: **VALIDATE → UPLOAD → BATCH → PROPOSE → WRITE BACK**.
 
 **Invariant — say this to the user in every launch summary: launching creates PROPOSALS in the ADUP approval queue. Nothing is uploaded to or created on any ad platform until a human approves each proposal in the portal — and even then, every ad lands PAUSED.**
 
-Usage: `/adup:launch [path]` — path may be a workspace root, a campaign folder, an ad set folder, or a single ad folder. No path = current directory's workspace, all campaigns.
+Usage: `/adup:creative-launch [path]` — path may be a workspace root, a campaign folder, an ad set folder, or a single ad folder. No path = current directory's workspace, all campaigns.
 
 Environment: `ADUP_API_KEY` (personal employee key), API base `${ADUP_API_BASE:-https://centralapi.adup.io}`.
 
@@ -120,8 +120,8 @@ Do not proceed without an explicit yes. If N is surprisingly large (language × 
   ```
 
   Include each platform's key(s) exactly as they appear under `map.<platform>` (only platforms actually present in `map:`; omit `create: true` phantoms). **Why:** the ADUP portal lets the reviewer tick "also launch on X" when approving a proposal — the backend can only auto-create the replica on platform X if these target ids are already embedded in the proposal. A proposal without `platform_targets` still works, but the reviewer loses the cross-platform option.
-- **`map.<platform>.create: true`** (new campaign/ad set) is **two-phase** in v1 for platforms that expose an approval-gated parent-creation tool: propose the campaign/ad set creation first (`tiktok__propose_create_campaign` / `tiktok__propose_create_adgroup`, or `facebook__ads_campaign_create` / `facebook__ads_adset_create`, each with `shop_slug` and `batch_id`), then tell the user to approve those in the portal and run `/adup:status` to capture the created ids into `map:` — THEN re-run `/adup:launch` for the ads. Do not chain unresolved parent ids in one batch.
-  - **Facebook parent creation IS approval-gated** — use `facebook__ads_campaign_create` / `facebook__ads_adset_create`, which file a proposal (`facebook_ads.campaign.create` / `.adset.create`) and do NOT execute; the campaign or ad set only exists once a reviewer approves it in the portal. They are the governed replacements for the old direct-write `create_campaign` tool, which was removed from the surface (tara-mcps pins this with `test_write_tools_route_to_proposal_not_api` and asserts `create_campaign` stays unregistered). So `map.facebook.create: true` follows the SAME two-phase flow as TikTok: propose the parent first (with `shop_slug` and `batch_id`), have the user approve it and run `/adup:status` to capture the created ids into `map:`, THEN re-run `/adup:launch` for the ads. Creating the parent by hand in Ads Manager and pasting the ids into `map.facebook` still works if the user prefers it.
+- **`map.<platform>.create: true`** (new campaign/ad set) is **two-phase** in v1 for platforms that expose an approval-gated parent-creation tool: propose the campaign/ad set creation first (`tiktok__propose_create_campaign` / `tiktok__propose_create_adgroup`, or `facebook__ads_campaign_create` / `facebook__ads_adset_create`, each with `shop_slug` and `batch_id`), then tell the user to approve those in the portal and run `/adup:creative-status` to capture the created ids into `map:` — THEN re-run `/adup:creative-launch` for the ads. Do not chain unresolved parent ids in one batch.
+  - **Facebook parent creation IS approval-gated** — use `facebook__ads_campaign_create` / `facebook__ads_adset_create`, which file a proposal (`facebook_ads.campaign.create` / `.adset.create`) and do NOT execute; the campaign or ad set only exists once a reviewer approves it in the portal. They are the governed replacements for the old direct-write `create_campaign` tool, which was removed from the surface (tara-mcps pins this with `test_write_tools_route_to_proposal_not_api` and asserts `create_campaign` stays unregistered). So `map.facebook.create: true` follows the SAME two-phase flow as TikTok: propose the parent first (with `shop_slug` and `batch_id`), have the user approve it and run `/adup:creative-status` to capture the created ids into `map:`, THEN re-run `/adup:creative-launch` for the ads. Creating the parent by hand in Ads Manager and pasting the ids into `map.facebook` still works if the user prefers it.
 - **Enhancements**: read `defaults.enhancements` from workspace.json — `off` → pass `enhancements_opt_out: true` on every Meta creative; `on` → `false`; `ask` → ask once per launch. Never re-ask when it's `off`/`on`.
 
 **Bulk vs individual proposing.** Facebook and TikTok expose `propose_bulk_launch(shop_slug, ads[], shared_reasoning, batch_id?)` (`facebook__propose_bulk_launch` / `tiktok__propose_bulk_launch`): up to **50 ads per call**, with **all-or-nothing pre-validation** (one invalid spec rejects the whole call — fix and retry; nothing partial is filed). One bulk call can carry 50 writes, so **`shop_slug` is mandatory on it** — never let it fall back to the ambient active shop.

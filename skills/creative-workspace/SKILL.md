@@ -1,6 +1,6 @@
 ---
 name: creative-workspace
-description: Initialize or health-check a local creative workspace for bulk ad launching. Scaffolds the folder convention (BRAND.md, assets/, campaigns/, .adup/ state), asks the one-time platform-enhancements question, and runs structural doctor checks. The workspace feeds /adup:launch, /adup:status, and /adup:creative-import.
+description: Initialize or health-check a local creative workspace for bulk ad launching. Scaffolds the folder convention (BRAND.md, assets/, campaigns/, .adup/ state), asks the one-time platform-enhancements question, and runs structural doctor checks. The workspace feeds /adup:creative-launch, /adup:creative-status, and /adup:creative-import.
 ---
 
 # Creative Workspace (init + doctor)
@@ -74,7 +74,7 @@ Store the answer in `workspace.json` under `defaults.enhancements`. Default to `
 
 ### Step 4 — Ask for defaults
 
-- Default platforms for new ads (e.g. `["facebook", "tiktok"]`). Creation is supported for facebook, tiktok, google (RSA text ads only — no media), and linkedin (single image/video ads); snapchat is **not yet supported for creation** — it can be listed but /adup:launch will skip it with a note.
+- Default platforms for new ads (e.g. `["facebook", "tiktok"]`). Creation is supported for facebook, tiktok, google (RSA text ads only — no media), and linkedin (single image/video ads); snapchat is **not yet supported for creation** — it can be listed but /adup:creative-launch will skip it with a note.
 - Default language (e.g. `"en"`).
 
 ### Step 5 — Scaffold
@@ -135,7 +135,7 @@ schedule:
   end: 2026-08-10
 map:                                 # WHERE ads land, per platform. v1: use EXISTING ids.
                                      # Map EVERY platform the campaign may run on — even ones an ad
-                                     # doesn't target yet: /adup:launch embeds all of them as
+                                     # doesn't target yet: /adup:creative-launch embeds all of them as
                                      # metadata.platform_targets so a portal reviewer can tick
                                      # "also launch on X" and the backend can auto-create the replica.
   facebook:
@@ -210,7 +210,7 @@ cd <workspace-root> && git init && printf '.adup/state.json\n.DS_Store\n' > .git
 ### Step 7 — Wrap up
 
 Summarize: workspace path, shop, defaults, enhancements answer. Tell the user:
-> Drop media into `assets/<concept>/` — **any file names work**, I detect each file's ratio and format from its actual pixels. Write ads as `ad.md` files, then run `/adup:launch`. Everything I launch becomes a **proposal** for approval in the ADUP portal, and approved ads always start **PAUSED**.
+> Drop media into `assets/<concept>/` — **any file names work**, I detect each file's ratio and format from its actual pixels. Write ads as `ad.md` files, then run `/adup:creative-launch`. Everything I launch becomes a **proposal** for approval in the ADUP portal, and approved ads always start **PAUSED**.
 
 ---
 
@@ -231,7 +231,7 @@ Run these checks from the workspace root:
    ```
    The detected `aspect_label` is authoritative. If the filename happens to contain a ratio token that **contradicts** detection, report a WARN ("filename says 4x5, actual pixels are 1080x1080 = 1x1 — detection wins at launch; consider renaming or ignore"). A token that matches, or no token at all, is silent/OK. Detected `aspect_label: "other"` = WARN (no placement on any platform will accept it).
 7. **Frontmatter completeness** — every `ad.md` has `status`, `format`, `creative`, `link`, `cta`; `_campaign.md` in scope has `map:` entries for every platform its ads target; TikTok-targeting ad sets have `identity_id` in `_adset.md`.
-8. **Lifecycle sanity** — `status: proposed|approved|live` ads exist in `state.json` with proposal ids (otherwise state was lost — suggest re-running /adup:launch, which is idempotent by checksum).
+8. **Lifecycle sanity** — `status: proposed|approved|live` ads exist in `state.json` with proposal ids (otherwise state was lost — suggest re-running /adup:creative-launch, which is idempotent by checksum).
 
 Output a table: `check | status (OK/WARN/ERROR) | detail`, followed by a numbered **fix list** ("1. assets/summer-sale/hero.mp4 is 3000x3000 — no accepted placement; provide a 9x16 export for TikTok…"). Offer to apply fixes only if the user explicitly asks, one confirmation per fix.
 
