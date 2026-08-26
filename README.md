@@ -142,8 +142,8 @@ Google Ads prefix is `google_ads__`, not `google__`.
 | Skill | Command | Description |
 |-------|---------|-------------|
 | Creative Workspace | `/adup:creative-workspace` | Init a local creative workspace (folders + markdown) or run doctor checks |
-| Launch | `/adup:launch` | Validate, upload, and propose ads in bulk per ad × platform × language |
-| Status | `/adup:status` | Sync approval statuses back into the workspace; `--csv` / `--sheet` exports |
+| Launch | `/adup:creative-launch` | Validate, upload, and propose ads in bulk per ad × platform × language |
+| Status | `/adup:creative-status` | Sync approval statuses back into the workspace; `--csv` / `--sheet` exports |
 | Creative Import | `/adup:creative-import` | Import a winning ad for cross-platform relaunch, or a spreadsheet copy matrix |
 
 ### Reporting
