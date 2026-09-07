@@ -177,6 +177,31 @@ Generate client-ready reports with:
   - *"Address the LinkedIn CPL increase — propose audience refinement"*
 - Attribution transparency: GA4 blended ROAS vs platform-reported
 
+### 9. Managed agents
+
+The agency's **managed agents** run server-side in Tara — per brand, on their own schedule,
+with a per-run budget and the same review queue your team already approves reports in:
+
+| Agent | Output | Default schedule |
+|-------|--------|------------------|
+| **Reporting Skill** | Whitelabel HTML report + PPTX deck | Mondays 07:00 |
+| **Spreadsheet Skill** | XLSX workbook | Mondays 06:00 |
+| **Assistant** | Chat, in Tara | — |
+
+The plugin operates them from wherever you work — Claude Code, Cowork or a cloud session:
+
+```
+/adup:agents                    is the report drafted? state, schedule, last run per brand
+/adup:agents open reporting     open the draft in Tara, or download the PPTX/XLSX
+/adup:agents run reporting      draft it now (the client meeting moved) — confirms, spends the run budget
+/adup:agents publish ./house    write the agency's house style locally, publish it into the agents
+```
+
+Configuration — switching agents on or off, schedules, budgets, instructions, attached skills —
+and approval stay in Tara. And the two never double up: `/adup:setup` drops the local reporting
+tasks for brands whose agent is active, and `/adup:client-report` offers the agent's draft before
+building one.
+
 ---
 
 ## Architecture
@@ -239,13 +264,14 @@ Set your budget caps, % limits, and approval thresholds at [tara.adup.io](https:
 
 ---
 
-## Available skills (20)
+## Available skills (21)
 
 | Category | Skill | What it does |
 |----------|-------|-------------|
 | **Setup** | `/adup:setup` | Configure API key |
 | | `/adup:connect` | Verify connection |
 | | `/adup:shop-select` | Switch client (agencies) |
+| **Agents** | `/adup:agents` | Operate the managed agents: status, open/download, run now, publish skills |
 | **Analysis** | `/adup:ads-overview` | Quick cross-platform summary |
 | | `/adup:facebook-ads` | Deep Facebook/Instagram analysis |
 | | `/adup:google-ads` | Google Ads performance |
