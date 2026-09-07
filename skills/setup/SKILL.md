@@ -5,7 +5,7 @@ description: Deploy the scheduled monitoring, optimization and reporting tasks, 
 
 # ADUP Setup
 
-Connection verification, report folder creation, and deployment of all 14 scheduled tasks.
+Connection verification, report folder creation, a managed-agent dedupe check, and deployment of the 14 scheduled tasks (12 when every brand's reporting is handled by a managed agent).
 
 > **The connector no longer gets its key from here.** Since v1.7.0 the MCP connector reads the
 > plugin's own **Employee API key** config field, filled in when the plugin was enabled — a shell
@@ -217,7 +217,7 @@ Call `list_shops` on the `adup` base connector using the key. The gateway will r
 - Your role (`owner` / `team_lead` / `manager` / `analyst` / `read_only`)
 - The shops you can access (filtered by your assigned shop permissions)
 
-Then call `set_active_shop(shop_slug="<slug>")` for one of them. This is **required for tool discovery**, not just routing: the base connector only lists a shop's platform tools (`facebook__*`, `google_ads__*`, `ga4__*`, …) once a shop is active — an agency key with no active shop sees ONLY the six unprefixed virtual tools (`list_shops`, `set_active_shop`, `create_report`, `get_kpi`, `get_report_template`, `get_report_branding`). Every data/action call after that still passes `shop_slug="<slug>"` explicitly.
+Then call `set_active_shop(shop_slug="<slug>")` for one of them. This is **required for tool discovery**, not just routing: the base connector only lists a shop's platform tools (`facebook__*`, `google_ads__*`, `ga4__*`, …) once a shop is active — an agency key with no active shop sees ONLY the unprefixed virtual tools (`list_shops`, `set_active_shop`, `create_report`, `get_kpi`, `get_report_template`, `get_report_branding`, plus the managed-agent tools `list_agents`, `get_agent_runs`, `get_agent_output`, `run_agent`, `list_agent_skills`, `publish_agent_skill`, `get_agent_skill_package`). Every data/action call after that still passes `shop_slug="<slug>"` explicitly.
 
 Report success with:
 
@@ -281,7 +281,74 @@ Repeat for every client. This creates the structure:
 Tell the user:
 > Report folders created at `~/Desktop/ADUP-Reports/`. Weekly and monthly reports will be saved here automatically.
 
-### 6. Deploy all scheduled tasks
+### 6. Managed agents — remove the local reporting tasks they replace
+
+Tara's **managed agents** (the Reporting Skill `client_reporting` → HTML + PPTX, the Spreadsheet
+Skill `google_sheets` → XLSX) run server-side on their own schedule and file drafts into the **same
+review queue** that `/adup:client-report` submits to. A brand with an active managed agent *and*
+the local weekly/monthly reporting tasks gets two drafts per period, two costs, and a reviewer who
+has to guess which one is canonical. So before deploying, find out which brands are covered and
+step aside for them. Decided 2026-09-07: **remove** the duplicates, do not merely skip them.
+
+**6a. Which brands have an active managed agent.** For every shop from Step 4 call
+`list_agents(shop_slug="<slug>")` (unprefixed virtual tool, explicit `shop_slug` every call — never
+the ambient shop; this is a loop). A brand is **covered** when any entry in `agents[]` has
+`agent_type` `client_reporting` or `google_sheets` with `is_active: true`. Print one summary line
+per brand:
+
+```
+Reporting per brand:
+  acme-nl      Reporting: managed agent active → local weekly/monthly tasks removed
+  puma         Reporting: managed agent active (google_sheets) → local weekly/monthly tasks removed
+  adidas-eu    Reporting: no managed agent → local weekly/monthly tasks kept
+```
+
+If `list_agents` is not in the tool list (older gateway) or errors, treat every brand as
+**not covered**, say so once, and continue — never let this step block the deploy.
+
+**6b. Which tasks this is about.** The 14 tasks are **agency-wide**: each one loops every shop
+inside its own prompt, so there is no per-brand task to delete. The reporting tasks the managed
+agents replace are exactly these two, by the `taskId` this skill assigns and nothing else:
+
+| taskId | what it duplicates |
+|---|---|
+| `adup-client-report-weekly` | the Reporting Skill's weekly draft (HTML + PPTX) |
+| `adup-client-report-monthly` | the Reporting Skill's monthly draft (HTML + PPTX) |
+
+Monitoring, optimisation, the Monday briefing, the internal reviews and the creative playbook are
+**untouched** — nothing server-side replaces them yet.
+
+**6c. Apply, per-brand and whole-task.** Two mechanisms, both needed:
+
+1. **Inside the prompt (per brand).** Both reporting-task prompts in Step 7 carry a dedupe clause:
+   at run time the task calls `list_agents(shop_slug="<slug>")` per shop and **skips** covered
+   brands, printing `skipped — managed Reporting Skill active`. This is what makes the per-brand
+   decision live: a brand whose agent is switched off later is picked up again on the next run
+   without re-running setup, and a brand whose agent is switched on stops getting a local draft.
+2. **The task itself (all brands).** When **every** brand is covered the two tasks have nothing
+   left to do — do **not** create them, and **delete** any that already exist:
+   - `list_scheduled_tasks()` → match **only** the exact `taskId`s `adup-client-report-weekly`
+     and `adup-client-report-monthly`. Never delete a task this skill did not create, and never
+     match on description or prompt text.
+   - Print each match by name **before** deleting ("Removing `adup-client-report-weekly` — every
+     brand has an active managed Reporting Skill"), call `delete_scheduled_task(taskId="<id>")`,
+     then print it again **after** ("Removed `adup-client-report-weekly`"). Nothing matched →
+     say "no local reporting tasks to remove".
+   - **Reverse direction:** when at least one brand is *not* covered (an agent was deactivated
+     since the last setup, or a new brand appeared), the two tasks are (re)created in Step 7 as
+     normal — say "re-created `adup-client-report-weekly`: <brand> has no active managed agent".
+     `create_scheduled_task` with an existing `taskId` updates it in place, so a task that
+     already exists is refreshed with the current prompt rather than duplicated.
+
+**If the scheduled-tasks tools are absent** (`list_scheduled_tasks` / `delete_scheduled_task` not
+in the tool list — Cowork, cloud sessions): do not pretend. List the duplicates by name and tell the
+user to remove them **where they were created** (the desktop app's task list, or the routine's own
+settings). Never claim they are gone.
+
+**Never** create a task that calls `run_agent`: the managed agent already has a schedule, and a
+local cron calling run-now is a second schedule that spends budget.
+
+### 7. Deploy all scheduled tasks
 
 > **This step needs a scheduling tool that the ADUP plugin does not provide.**
 > `create_scheduled_task` comes from Claude's scheduled-tasks capability, not from the `adup`
@@ -295,10 +362,12 @@ Tell the user:
 > > of the ADUP plugin. You can run any of these on demand (e.g. `/adup:monday-briefing`), and
 > > re-run `/adup:setup` once scheduling is available to deploy them.
 >
-> then skip to Step 7. Cowork and cloud **routines** schedule differently — see
+> then skip to Step 8. Cowork and cloud **routines** schedule differently — see
 > `/docs/en/routines`; the task prompts below are still the right content to schedule there.
 
-Now create all 14 scheduled tasks using the `create_scheduled_task` tool. Deploy them in this order (monitoring first, then optimization, then reporting).
+Now create the scheduled tasks using the `create_scheduled_task` tool — all 14, **minus the two
+client reporting tasks when Step 6 said to remove them**. Deploy them in this order (monitoring
+first, then optimization, then reporting).
 
 **Why every prompt below repeats the same shop-safety paragraph:** these tasks run on cron, often at overlapping times, and they all share ONE `ADUP_API_KEY`. `set_active_shop` sets a single *ambient* shop per API key — so if a task looped `set_active_shop` per client, a concurrently running task would clobber it mid-loop and the task could read (or propose changes against) the wrong client's account. The prompts therefore call `list_shops` once, use `set_active_shop` only to make platform tools discoverable, and pass `shop_slug="<slug>"` explicitly on every single data and proposal call. Keep that paragraph verbatim if you edit these prompts. Tool names in the prompts are namespaced `platform__tool` (`facebook__`, `google_ads__`, `ga4__`, `tiktok__`, `linkedin__`) — only the six virtual tools are unprefixed, and the Google Ads prefix is `google_ads__`, never `google__`.
 
@@ -373,14 +442,14 @@ create_scheduled_task(
   taskId: "adup-client-report-weekly",
   description: "Weekly client performance report with PPTX",
   cronExpression: "0 15 * * 5",
-  prompt: "Run /adup:client-report for all clients. Call list_shops ONCE to get every shop's slug and connected_platforms. Call set_active_shop once up front only so the platform tools become discoverable (re-call it for a shop whose tools are not listed); NEVER rely on it for routing. For each shop, pass shop_slug=\"<slug>\" explicitly on EVERY data and report call — these scheduled runs share one API key and can run concurrently, so an ambient active shop set by one run clobbers another and a task can read or write the wrong client's data. Per shop: pull last 7 days vs previous 7 days from all connected platforms (facebook__*, google_ads__* with micros/1000000, tiktok__*, linkedin__*, ga4__*). Generate full client report: Executive Summary, Performance by Platform table, What Worked (3-5 wins), What Needs Improvement (3-5 issues with root causes), Recommendations, and Talking Points for client call. Calculate blended ROAS via GA4. Use client-friendly language (no jargon). Save as ~/Desktop/ADUP-Reports/{client-slug}/{YYYY-MM}/{client}_weekly_{YYYY-MM-DD}.md (mkdir -p first). Then generate a PPTX presentation from the content and save as {client}_weekly_{YYYY-MM-DD}.pptx in same folder. Open Finder to the folder after saving: open ~/Desktop/ADUP-Reports/{client-slug}/{YYYY-MM}/"
+  prompt: "Run /adup:client-report for all clients. Call list_shops ONCE to get every shop's slug and connected_platforms. Call set_active_shop once up front only so the platform tools become discoverable (re-call it for a shop whose tools are not listed); NEVER rely on it for routing. For each shop, pass shop_slug=\"<slug>\" explicitly on EVERY data and report call — these scheduled runs share one API key and can run concurrently, so an ambient active shop set by one run clobbers another and a task can read or write the wrong client's data. DEDUPE FIRST, per shop: call list_agents(shop_slug=\"<slug>\"); if any agents[] entry has agent_type client_reporting or google_sheets with is_active true, SKIP this shop entirely and print '<slug>: skipped — managed Reporting Skill active' (Tara's managed agent already drafts this report into the same review queue; a second local draft is a duplicate and a second cost). If list_agents is unavailable or errors, treat the shop as not covered. Never call run_agent from this task. Per shop that is not covered: pull last 7 days vs previous 7 days from all connected platforms (facebook__*, google_ads__* with micros/1000000, tiktok__*, linkedin__*, ga4__*). Generate full client report: Executive Summary, Performance by Platform table, What Worked (3-5 wins), What Needs Improvement (3-5 issues with root causes), Recommendations, and Talking Points for client call. Calculate blended ROAS via GA4. Use client-friendly language (no jargon). Save as ~/Desktop/ADUP-Reports/{client-slug}/{YYYY-MM}/{client}_weekly_{YYYY-MM-DD}.md (mkdir -p first). Then generate a PPTX presentation from the content and save as {client}_weekly_{YYYY-MM-DD}.pptx in same folder. Open Finder to the folder after saving: open ~/Desktop/ADUP-Reports/{client-slug}/{YYYY-MM}/"
 )
 
 create_scheduled_task(
   taskId: "adup-client-report-monthly",
   description: "Monthly client performance report with PPTX",
   cronExpression: "0 9 1 * *",
-  prompt: "Run /adup:client-report for all clients (monthly edition). Call list_shops ONCE to get every shop's slug and connected_platforms. Call set_active_shop once up front only so the platform tools become discoverable (re-call it for a shop whose tools are not listed); NEVER rely on it for routing. For each shop, pass shop_slug=\"<slug>\" explicitly on EVERY data and report call — these scheduled runs share one API key and can run concurrently, so an ambient active shop set by one run clobbers another and a task can read or write the wrong client's data. Per shop: pull full previous month data from all connected platforms (facebook__*, google_ads__*, tiktok__*, linkedin__*, ga4__*). Include: Executive Summary, Platform Performance MoM comparison, Conversion Funnel Analysis (ga4__get_conversion_funnel(shop_slug=\"<slug>\")), Budget Utilization Review, Channel Mix (GA4 revenue attribution), Creative Performance Summary, What Worked (top 5), What Needs Improvement (top 5 with root causes), Strategic Recommendations for next month, and Talking Points. Save as ~/Desktop/ADUP-Reports/{client-slug}/{YYYY-MM}/{client}_monthly_{YYYY-MM-01}.md (mkdir -p first). Generate PPTX with slides: Title, Exec Summary, Platform Performance, Funnel, Budget Review, Channel Mix, Wins, Improvements, Recommendations. Save as {client}_monthly_{YYYY-MM-01}.pptx in same folder. Open Finder after saving."
+  prompt: "Run /adup:client-report for all clients (monthly edition). Call list_shops ONCE to get every shop's slug and connected_platforms. Call set_active_shop once up front only so the platform tools become discoverable (re-call it for a shop whose tools are not listed); NEVER rely on it for routing. For each shop, pass shop_slug=\"<slug>\" explicitly on EVERY data and report call — these scheduled runs share one API key and can run concurrently, so an ambient active shop set by one run clobbers another and a task can read or write the wrong client's data. DEDUPE FIRST, per shop: call list_agents(shop_slug=\"<slug>\"); if any agents[] entry has agent_type client_reporting or google_sheets with is_active true, SKIP this shop entirely and print '<slug>: skipped — managed Reporting Skill active' (Tara's managed agent already drafts this report into the same review queue; a second local draft is a duplicate and a second cost). If list_agents is unavailable or errors, treat the shop as not covered. Never call run_agent from this task. Per shop that is not covered: pull full previous month data from all connected platforms (facebook__*, google_ads__*, tiktok__*, linkedin__*, ga4__*). Include: Executive Summary, Platform Performance MoM comparison, Conversion Funnel Analysis (ga4__get_conversion_funnel(shop_slug=\"<slug>\")), Budget Utilization Review, Channel Mix (GA4 revenue attribution), Creative Performance Summary, What Worked (top 5), What Needs Improvement (top 5 with root causes), Strategic Recommendations for next month, and Talking Points. Save as ~/Desktop/ADUP-Reports/{client-slug}/{YYYY-MM}/{client}_monthly_{YYYY-MM-01}.md (mkdir -p first). Generate PPTX with slides: Title, Exec Summary, Platform Performance, Funnel, Budget Review, Channel Mix, Wins, Improvements, Recommendations. Save as {client}_monthly_{YYYY-MM-01}.pptx in same folder. Open Finder after saving."
 )
 ```
 
@@ -420,9 +489,11 @@ create_scheduled_task(
 )
 ```
 
-### 7. Report deployed tasks
+### 8. Report deployed tasks
 
-After all tasks are created, present a summary to the user:
+After all tasks are created, present a summary to the user. Include the per-brand reporting
+lines from Step 6a, and when the two client reporting tasks were removed or not created, show
+them as such instead of as deployed (and count 12, not 14):
 
 ```
 ADUP Fully Configured!
@@ -446,8 +517,12 @@ OPTIMIZATION (targeted days)
 
 REPORTING — CLIENT
   08:00  Monday Briefing ................ Mon
-  15:00  Weekly Report + PPTX ........... Fri
-  09:00  Monthly Report + PPTX .......... 1st of month
+  15:00  Weekly Report + PPTX ........... Fri        (skips brands with an active managed Reporting Skill)
+  09:00  Monthly Report + PPTX .......... 1st of month (same)
+
+Reporting per brand:
+  acme-nl      Reporting: managed agent active → local weekly/monthly tasks removed
+  adidas-eu    Reporting: no managed agent → local weekly/monthly tasks kept
 
 REPORTING — INTERNAL
   08:30  Daily Overview ................. Mon-Fri
@@ -462,20 +537,24 @@ Reports saved to: ~/Desktop/ADUP-Reports/{client}/
 Try: "How are my campaigns doing?" to start exploring.
 ```
 
-### 8. Optional: Deploy for single client only
+### 9. Optional: Deploy for single client only
 
 If the user says they only want to set up tasks for a specific client, ask which client and only create report folders for that one. The scheduled tasks themselves loop through all clients automatically, so no change needed — but the report folder only needs to be created for the requested client.
 
-### 9. Sync your org's installed skills
+### 10. Point at the managed agents
 
-After API key + report folders + scheduled tasks are set up, run `/adup:sync-skills` to pull any org-installed or org-private skills your agency has added in the portal. Restart Claude Code once after the sync so the new skills become available.
+After API key + report folders + scheduled tasks are set up, tell the user that the agency's
+skills now run inside Tara's managed agents and are operated with `/adup:agents` (`status`,
+`open`, `run`, `skills`, `publish`). There is nothing to sync down any more — `/adup:sync-skills`
+is deprecated and only cleans up what it used to write.
 
 ## Notes
 
 - Never log or display the full API key after the user pastes it — only show the first 8 characters followed by `...` for confirmation
 - The key is a UUID in the format: `xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx`
 - If tasks already exist (user re-runs setup), the `create_scheduled_task` tool will handle duplicates — existing tasks with the same `taskId` will be updated, not duplicated
-- If the user only wants to re-deploy tasks (key already set), skip steps 1-3 and jump straight to step 4
+- If the user only wants to re-deploy tasks (key already set), skip steps 1-3 and jump straight to step 4 — Step 6 (managed-agent dedupe) still runs every time, because that is how a brand whose agent was switched on or off since the last setup gets its local reporting task removed or re-created
+- The only tasks setup ever deletes are `adup-client-report-weekly` and `adup-client-report-monthly`, matched by exact `taskId`, each printed by name before and after deletion
 - All 14 tasks iterate over all clients automatically — no per-client task creation needed. They do it by passing `shop_slug="<slug>"` per call, **not** by re-pointing an ambient active shop per client: `set_active_shop` sets one shop per API key, so a per-client `set_active_shop` loop races with the other cron tasks sharing that key and can read or write the wrong client
 - The task prompts reference specific ADUP MCP tools by name — these are the actual function names the AI should call when executing. All platform tools are namespaced `platform__tool` (`facebook__`, `google_ads__`, `ga4__`, `tiktok__`, `linkedin__`, …); only `list_shops`, `set_active_shop`, `create_report`, `get_kpi`, `get_report_template`, and `get_report_branding` are unprefixed. A bare `propose_budget_change` / `propose_status_change` is ambiguous — those tools exist on four platforms
 

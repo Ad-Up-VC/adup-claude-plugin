@@ -65,9 +65,13 @@ After listing shops, briefly remind the user what their role allows:
 - **analyst**: can see assigned shops, propose changes — every change goes to `pending_review` and requires approval by a team_lead/manager/owner.
 - **read_only**: can see assigned shops and read data, but cannot propose any change.
 
-## New skills from your agency
+## Your agency's managed agents
 
-If your agency owner has installed additional skills (e.g., "LinkedIn Engagement Analysis") in the ADUP portal, run `/adup:sync-skills` to pull them into your local Claude. They'll be available after a Claude restart.
+The agency's skills run inside Tara's **managed agents** (Reporting Skill, Spreadsheet Skill,
+Assistant) — server-side, per brand, on their own schedule. Nothing is synced down any more. Run
+`/adup:agents` to see each brand's agents, open or download their drafts, start a run, or publish a
+house-style skill up to them. `/adup:sync-skills` is deprecated and only cleans up what it used to
+write.
 
 ## Switching shops — refresh the tool list
 
