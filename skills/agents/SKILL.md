@@ -149,8 +149,9 @@ Configure, switch on/off or change schedules in Tara: <TARA>/agents
    → `{run_id, status: 'scheduled'}`. Tool errors, in plain words:
    - **409** — "A {label} run for {brand} is already in flight. Follow it in Tara:
      <TARA>/agents/<agent_type>". Do not retry.
-   - **422** — "The {label} agent is switched off for {brand}. Switch it on first in Tara:
-     <TARA>/agents/<agent_type>, then run again." Do not try to activate it.
+   - **422** or **404 `agent_not_found`** — "The {label} agent is not switched on for {brand}. Switch it
+     on first in Tara: <TARA>/agents/<agent_type>, then run again." (422 = switched off, 404 = never
+     activated for this brand.) Do not try to activate it.
    - Anything else → quote the message; do not retry blindly (a retry may spend a second budget).
 4. **Poll**: `get_agent_runs(shop_slug="<slug>", agent_type="<type>", limit=3)` every **10
    seconds**, matching `runs[].id == run_id`, until `status` is `ready`, `failed` or
