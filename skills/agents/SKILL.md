@@ -19,6 +19,12 @@ key, RBAC and ambient-shop guard, which is why this skill also works in Cowork a
 If these tools are not in the tool list, the gateway on this environment predates them — say so
 plainly and point the user to Tara → **Agents**; do not fake a result.
 
+**Tara portal base (`<TARA>`).** Links below are written as `<TARA>/…`. Resolve it from the
+environment the connector is pointed at: production → `https://tara.adup.io`; if `ADUP_API_BASE`
+(or the connector URL) is the dev host (`centralapi-dev.kodeia.com` / `gateway.kodeia.com`) →
+`https://tara-dev.kodeia.com`; staging (`centralapi-staging.adup.io` / `gateway-staging.adup.io`)
+→ `https://tara-staging.adup.io`. Print the resolved absolute URL, never the placeholder.
+
 ## Hard rules
 
 - **`run_agent` is money.** Every run spends the agent's per-run budget. Always confirm first with
@@ -28,7 +34,7 @@ plainly and point the user to Tara → **Agents**; do not fake a result.
 - **Review happens in Tara.** This skill links to the report; it never approves, edits or publishes
   one, and it never renders an HTML report in the terminal.
 - **Configuration happens in Tara.** Activating/deactivating an agent, changing its schedule,
-  budget, model, instructions or attached skills is done at `https://tara.adup.io/agents/<agent_type>`.
+  budget, model, instructions or attached skills is done at `<TARA>/agents/<agent_type>`.
   This skill has no tool for any of that and must not improvise one.
 - **`report_ready` / `report_failed` are worker tools.** If they ever appear in the tool list for
   an employee key, do not call them — they belong to the run↔worker binding, not to you.
@@ -86,7 +92,7 @@ Reporting Skill    Active           Mondays 07:00 Europe/Amsterdam   ready · 20
 Spreadsheet Skill  Needs attention  Mondays 06:00 Europe/Amsterdam   failed · 2026-09-01 — "GA4 token expired"           Mon 2026-09-08 06:00
 Assistant          Set up           —                           —                                            —
 
-Configure, switch on/off or change schedules in Tara: https://tara.adup.io/agents
+Configure, switch on/off or change schedules in Tara: <TARA>/agents
 ```
 
    - **State:** `needs_attention: true` → **Needs attention**; else `is_active` → **Active**;
@@ -98,7 +104,7 @@ Configure, switch on/off or change schedules in Tara: https://tara.adup.io/agent
      agent_type="<type>", limit=1)` — `status` and `summary` (truncate the summary to one line).
      Skip the extra call for chat agents. **Next run:** `next_run_at`, in the schedule's timezone.
 3. After the table, one line per agent that **Needs attention**, quoting the last run's `error`,
-   and the Tara link `https://tara.adup.io/agents/<agent_type>`.
+   and the Tara link `<TARA>/agents/<agent_type>`.
 4. **First-run cleanup offer.** The first time `status` runs in a session, check for leftovers of
    the retired `/adup:sync-skills` (see `cleanup`). If any exist, say how many and offer to remove
    them — offer once, never delete unasked.
@@ -111,7 +117,7 @@ Configure, switch on/off or change schedules in Tara: https://tara.adup.io/agent
 2. Deliver per output kind — the run's `outputs`/`artifacts[]` say what exists:
    - **HTML report** (`client_report_id` present) → `get_agent_output(run_id="<id>", kind="html")`
      → `{client_report_id, portal_path}`. Print the Tara link:
-     `https://tara.adup.io<portal_path>` (equivalently `https://tara.adup.io/client-reports/<client_report_id>`).
+     `<TARA><portal_path>` (equivalently `<TARA>/client-reports/<client_report_id>`).
      The report is **reviewed in Tara** — never render it in the terminal, never call
      `create_report` for it, never claim it has been approved.
    - **PPTX / XLSX** (`artifacts[].kind`) → `get_agent_output(run_id="<id>", kind="pptx"|"xlsx")`
@@ -142,15 +148,15 @@ Configure, switch on/off or change schedules in Tara: https://tara.adup.io/agent
 3. `run_agent(shop_slug="<slug>", agent_type="<type>", period_start=…, period_end=…, focus=…)`
    → `{run_id, status: 'scheduled'}`. Tool errors, in plain words:
    - **409** — "A {label} run for {brand} is already in flight. Follow it in Tara:
-     https://tara.adup.io/agents/<agent_type>". Do not retry.
+     <TARA>/agents/<agent_type>". Do not retry.
    - **422** — "The {label} agent is switched off for {brand}. Switch it on first in Tara:
-     https://tara.adup.io/agents/<agent_type>, then run again." Do not try to activate it.
+     <TARA>/agents/<agent_type>, then run again." Do not try to activate it.
    - Anything else → quote the message; do not retry blindly (a retry may spend a second budget).
 4. **Poll**: `get_agent_runs(shop_slug="<slug>", agent_type="<type>", limit=3)` every **10
    seconds**, matching `runs[].id == run_id`, until `status` is `ready`, `failed` or
    `budget_reached`. Report progress sparingly ("running…", "generating…"). **Cap: 30 minutes** —
    then stop polling and say: "Still running after 30 minutes — follow it in Tara at
-   https://tara.adup.io/agents/<agent_type>; run `/adup:agents open <agent>` later." Never
+   <TARA>/agents/<agent_type>; run `/adup:agents open <agent>` later." Never
    create a scheduled task to keep polling.
 5. `ready` → behave exactly like `open` for this run. `failed` → quote `error` and the Tara link.
    `budget_reached` → say the run stopped at its budget cap (`cost_cents`), that a partial draft
@@ -170,7 +176,7 @@ sk_12  House style          agency   2026-09-01    yes
 sk_07  Report QA checklist  adup     2026-07-14    yes
 sk_03  Legacy tone guide    agency   2026-05-02    no  (uploaded before packages were retained — republish to pull it)
 
-Which agents a skill is attached to is not shown here — see Skill settings at https://tara.adup.io/agents/<agent_type>.
+Which agents a skill is attached to is not shown here — see Skill settings at <TARA>/agents/<agent_type>.
 ```
 
 If the tool errors with a permission error, the user's role cannot manage settings — say so and
@@ -218,7 +224,7 @@ name the role required (`settings.manage`, i.e. owner/team_lead/manager).
    name="<name>", description="<description>", package_base64="<…>", filename="<name>.zip")`.
    The tool returns the created row; print its `id` and `name`. Remove the temp zip.
 5. Remind: **attaching it to an agent happens in Tara** under **Skill settings** at
-   `https://tara.adup.io/agents/<agent_type>` — publishing alone changes nothing for any agent.
+   `<TARA>/agents/<agent_type>` — publishing alone changes nothing for any agent.
 
 ## `cleanup`
 
