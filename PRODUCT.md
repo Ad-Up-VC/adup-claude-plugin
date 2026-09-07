@@ -184,8 +184,8 @@ with a per-run budget and the same review queue your team already approves repor
 
 | Agent | Output | Default schedule |
 |-------|--------|------------------|
-| **Reporting Skill** | Whitelabel HTML report + PPTX deck | Mondays 07:00 |
-| **Spreadsheet Skill** | XLSX workbook | Mondays 06:00 |
+| **Reporting Agent** | Whitelabel HTML report + PPTX deck | Mondays 07:00 |
+| **Spreadsheet Agent** | XLSX workbook | Mondays 06:00 |
 | **Assistant** | Chat, in Tara | — |
 
 The plugin operates them from wherever you work — Claude Code, Cowork or a cloud session:

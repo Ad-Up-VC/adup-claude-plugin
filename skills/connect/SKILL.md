@@ -67,7 +67,7 @@ After listing shops, briefly remind the user what their role allows:
 
 ## Your agency's managed agents
 
-The agency's skills run inside Tara's **managed agents** (Reporting Skill, Spreadsheet Skill,
+The agency's skills run inside Tara's **managed agents** (Reporting Agent, Spreadsheet Agent,
 Assistant) — server-side, per brand, on their own schedule. Nothing is synced down any more. Run
 `/adup:agents` to see each brand's agents, open or download their drafts, start a run, or publish a
 house-style skill up to them. `/adup:sync-skills` is deprecated and only cleans up what it used to

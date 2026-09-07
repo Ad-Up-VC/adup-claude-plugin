@@ -24,12 +24,12 @@ There are two delivery paths. Choose ONE up front:
    - **Weekly:** last 7 days vs previous 7 days
    - **Monthly:** last calendar month vs previous calendar month
    - **Custom:** user-specified date range vs equal-length previous period
-2b. **Already drafted by the managed Reporting Skill?** Call
+2b. **Already drafted by the managed Reporting Agent?** Call
    `get_agent_runs(shop_slug="<slug>", agent_type="client_reporting", limit=3)`. If a run with
    `status: 'ready'` has `period_start`/`period_end` covering the requested period (same period,
    or the requested range falls inside it), ask — and **default to opening**:
 
-   > The Reporting Skill already drafted {period_label} for {brand} on {date of finished_at} —
+   > The Reporting Agent already drafted {period_label} for {brand} on {date of finished_at} —
    > open it in Tara, or build a fresh one?
 
    *Open* (or no answer) → call `get_agent_output(run_id="<id>", kind="html")` and print the
@@ -254,7 +254,7 @@ Call `get_report_template(shop_slug="<slug>")`.
     own `branding` block is what shipped last time; the fresh values from 5A.2 take precedence
     if they differ.
 - **`agency_instructions`** (string; may be absent or empty — independent of `has_template`) are
-  the agency's house instructions, the same `custom_instructions` the managed Reporting Skill
+  the agency's house instructions, the same `custom_instructions` the managed Reporting Agent
   runs with. Apply them so a report built here reads like one the agent drafted: **append them
   AFTER the contract's rules** — tone, emphasis, sections to add or stress, wording preferences,
   client-specific framing. They are house style, not a licence: they **never override** the
@@ -473,7 +473,7 @@ Legacy PPTX path (5B) additionally:
 
 12. **Monthly = strategic, weekly = tactical.** Monthly reports go deeper: funnel, utilization, channel mix, creative health, strategic recommendations. Weekly stays focused on this week's performance and next week's actions.
 
-13. **One draft per period, one voice.** The managed Reporting Skill in Tara files into the same
+13. **One draft per period, one voice.** The managed Reporting Agent in Tara files into the same
     review queue as `create_report`. Check `get_agent_runs` first (Pre-flight 2b) and offer the
     agent's draft when it covers the period; when building anyway, follow `agency_instructions`
     from `get_report_template` as appended house style so the two read alike. House instructions
