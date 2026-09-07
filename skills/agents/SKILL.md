@@ -1,6 +1,6 @@
 ---
 name: agents
-description: Operate your agency's managed agents (the Reporting Skill, the Spreadsheet Skill, the Assistant) from Claude Code. Shows each brand's agents with their state, schedule and last run; opens the latest drafted report in Tara or downloads its PPTX/XLSX; starts a run now (with an explicit cost confirmation); lists, pulls and publishes the agency's custom agent skills; and cleans up the personal skills the retired /adup:sync-skills wrote. Tool-backed, so it works in Cowork and cloud sessions too. Trigger on "agents", "is the report drafted", "open the Acme report", "run the reporting agent", "publish this skill to the agents".
+description: Operate your agency's managed agents (the Reporting Agent, the Spreadsheet Agent, the Assistant) from Claude Code. Shows each brand's agents with their state, schedule and last run; opens the latest drafted report in Tara or downloads its PPTX/XLSX; starts a run now (with an explicit cost confirmation); lists, pulls and publishes the agency's custom agent skills; and cleans up the personal skills the retired /adup:sync-skills wrote. Tool-backed, so it works in Cowork and cloud sessions too. Trigger on "agents", "is the report drafted", "open the Acme report", "run the reporting agent", "publish this skill to the agents".
 ---
 
 # Managed Agents (/adup:agents)
@@ -88,8 +88,8 @@ the brand has exactly one agent that produces output, use it; otherwise ask.
 Managed agents — Acme NL (acme-nl)
 
 Agent              State            Schedule                    Last run                                     Next run
-Reporting Skill    Active           Mondays 07:00 Europe/Amsterdam   ready · 2026-09-01 — "Aug: ROAS 3.4x, Meta up 12%"   Mon 2026-09-08 07:00
-Spreadsheet Skill  Needs attention  Mondays 06:00 Europe/Amsterdam   failed · 2026-09-01 — "GA4 token expired"           Mon 2026-09-08 06:00
+Reporting Agent    Active           Mondays 07:00 Europe/Amsterdam   ready · 2026-09-01 — "Aug: ROAS 3.4x, Meta up 12%"   Mon 2026-09-08 07:00
+Spreadsheet Agent  Needs attention  Mondays 06:00 Europe/Amsterdam   failed · 2026-09-01 — "GA4 token expired"           Mon 2026-09-08 06:00
 Assistant          Set up           —                           —                                            —
 
 Configure, switch on/off or change schedules in Tara: <TARA>/agents
@@ -177,7 +177,7 @@ sk_12  House style          agency   2026-09-01    yes
 sk_07  Report QA checklist  adup     2026-07-14    yes
 sk_03  Legacy tone guide    agency   2026-05-02    no  (uploaded before packages were retained — republish to pull it)
 
-Which agents a skill is attached to is not shown here — see Skill settings at <TARA>/agents/<agent_type>.
+Which agents a skill is attached to is not shown here — see Agent settings at <TARA>/agents/<agent_type>.
 ```
 
 If the tool errors with a permission error, the user's role cannot manage settings — say so and
@@ -224,7 +224,7 @@ name the role required (`settings.manage`, i.e. owner/team_lead/manager).
 4. `base64 -i /tmp/adup-skill.zip | tr -d '\n'` → `publish_agent_skill(shop_slug="<slug>",
    name="<name>", description="<description>", package_base64="<…>", filename="<name>.zip")`.
    The tool returns the created row; print its `id` and `name`. Remove the temp zip.
-5. Remind: **attaching it to an agent happens in Tara** under **Skill settings** at
+5. Remind: **attaching it to an agent happens in Tara** under **Agent settings** at
    `<TARA>/agents/<agent_type>` — publishing alone changes nothing for any agent.
 
 ## `cleanup`

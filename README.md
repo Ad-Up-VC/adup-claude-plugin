@@ -156,7 +156,7 @@ Google Ads prefix is `google_ads__`, not `google__`.
 
 ## Managed agents
 
-Your agency's **managed agents** — the Reporting Skill (HTML + PPTX), the Spreadsheet Skill
+Your agency's **managed agents** — the Reporting Agent (HTML + PPTX), the Spreadsheet Agent
 (XLSX) and the Assistant — run server-side in Tara: brand-scoped, budgeted, on their own
 schedule, filing drafts into the agency's review queue. The plugin does not run them and does not
 copy their instructions down; it **operates** them:

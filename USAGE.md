@@ -270,11 +270,11 @@ no external scripts, fonts, stylesheets or images. Oversized HTML is rejected wi
 switch base64 raster images to inline SVG rather than trimming content.
 
 `get_report_template` also returns `agency_instructions` — the house instructions the managed
-Reporting Skill runs with. Apply them *after* the report contract's rules, never instead of them.
+Reporting Agent runs with. Apply them *after* the report contract's rules, never instead of them.
 
 ### Managed agents
 
-The agency's managed agents (Reporting Skill, Spreadsheet Skill, Assistant) run server-side in
+The agency's managed agents (Reporting Agent, Spreadsheet Agent, Assistant) run server-side in
 Tara and file into the same review queue. Operate them with these tools — every one takes an
 explicit `shop_slug`:
 

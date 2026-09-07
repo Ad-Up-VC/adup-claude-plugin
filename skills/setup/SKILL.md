@@ -283,7 +283,7 @@ Tell the user:
 
 ### 6. Managed agents — remove the local reporting tasks they replace
 
-Tara's **managed agents** (the Reporting Skill `client_reporting` → HTML + PPTX, the Spreadsheet
+Tara's **managed agents** (the Reporting Agent `client_reporting` → HTML + PPTX, the Spreadsheet
 Skill `google_sheets` → XLSX) run server-side on their own schedule and file drafts into the **same
 review queue** that `/adup:client-report` submits to. A brand with an active managed agent *and*
 the local weekly/monthly reporting tasks gets two drafts per period, two costs, and a reviewer who
@@ -312,8 +312,8 @@ agents replace are exactly these two, by the `taskId` this skill assigns and not
 
 | taskId | what it duplicates |
 |---|---|
-| `adup-client-report-weekly` | the Reporting Skill's weekly draft (HTML + PPTX) |
-| `adup-client-report-monthly` | the Reporting Skill's monthly draft (HTML + PPTX) |
+| `adup-client-report-weekly` | the Reporting Agent's weekly draft (HTML + PPTX) |
+| `adup-client-report-monthly` | the Reporting Agent's monthly draft (HTML + PPTX) |
 
 Monitoring, optimisation, the Monday briefing, the internal reviews and the creative playbook are
 **untouched** — nothing server-side replaces them yet.
@@ -322,7 +322,7 @@ Monitoring, optimisation, the Monday briefing, the internal reviews and the crea
 
 1. **Inside the prompt (per brand).** Both reporting-task prompts in Step 7 carry a dedupe clause:
    at run time the task calls `list_agents(shop_slug="<slug>")` per shop and **skips** covered
-   brands, printing `skipped — managed Reporting Skill active`. This is what makes the per-brand
+   brands, printing `skipped — managed Reporting Agent active`. This is what makes the per-brand
    decision live: a brand whose agent is switched off later is picked up again on the next run
    without re-running setup, and a brand whose agent is switched on stops getting a local draft.
 2. **The task itself (all brands).** When **every** brand is covered the two tasks have nothing
@@ -331,7 +331,7 @@ Monitoring, optimisation, the Monday briefing, the internal reviews and the crea
      and `adup-client-report-monthly`. Never delete a task this skill did not create, and never
      match on description or prompt text.
    - Print each match by name **before** deleting ("Removing `adup-client-report-weekly` — every
-     brand has an active managed Reporting Skill"), call `delete_scheduled_task(taskId="<id>")`,
+     brand has an active managed Reporting Agent"), call `delete_scheduled_task(taskId="<id>")`,
      then print it again **after** ("Removed `adup-client-report-weekly`"). Nothing matched →
      say "no local reporting tasks to remove".
    - **Reverse direction:** when at least one brand is *not* covered (an agent was deactivated
@@ -442,14 +442,14 @@ create_scheduled_task(
   taskId: "adup-client-report-weekly",
   description: "Weekly client performance report with PPTX",
   cronExpression: "0 15 * * 5",
-  prompt: "Run /adup:client-report for all clients. Call list_shops ONCE to get every shop's slug and connected_platforms. Call set_active_shop once up front only so the platform tools become discoverable (re-call it for a shop whose tools are not listed); NEVER rely on it for routing. For each shop, pass shop_slug=\"<slug>\" explicitly on EVERY data and report call — these scheduled runs share one API key and can run concurrently, so an ambient active shop set by one run clobbers another and a task can read or write the wrong client's data. DEDUPE FIRST, per shop: call list_agents(shop_slug=\"<slug>\"); if any agents[] entry has agent_type client_reporting or google_sheets with is_active true, SKIP this shop entirely and print '<slug>: skipped — managed Reporting Skill active' (Tara's managed agent already drafts this report into the same review queue; a second local draft is a duplicate and a second cost). If list_agents is unavailable or errors, treat the shop as not covered. Never call run_agent from this task. Per shop that is not covered: pull last 7 days vs previous 7 days from all connected platforms (facebook__*, google_ads__* with micros/1000000, tiktok__*, linkedin__*, ga4__*). Generate full client report: Executive Summary, Performance by Platform table, What Worked (3-5 wins), What Needs Improvement (3-5 issues with root causes), Recommendations, and Talking Points for client call. Calculate blended ROAS via GA4. Use client-friendly language (no jargon). Save as ~/Desktop/ADUP-Reports/{client-slug}/{YYYY-MM}/{client}_weekly_{YYYY-MM-DD}.md (mkdir -p first). Then generate a PPTX presentation from the content and save as {client}_weekly_{YYYY-MM-DD}.pptx in same folder. Open Finder to the folder after saving: open ~/Desktop/ADUP-Reports/{client-slug}/{YYYY-MM}/"
+  prompt: "Run /adup:client-report for all clients. Call list_shops ONCE to get every shop's slug and connected_platforms. Call set_active_shop once up front only so the platform tools become discoverable (re-call it for a shop whose tools are not listed); NEVER rely on it for routing. For each shop, pass shop_slug=\"<slug>\" explicitly on EVERY data and report call — these scheduled runs share one API key and can run concurrently, so an ambient active shop set by one run clobbers another and a task can read or write the wrong client's data. DEDUPE FIRST, per shop: call list_agents(shop_slug=\"<slug>\"); if any agents[] entry has agent_type client_reporting or google_sheets with is_active true, SKIP this shop entirely and print '<slug>: skipped — managed Reporting Agent active' (Tara's managed agent already drafts this report into the same review queue; a second local draft is a duplicate and a second cost). If list_agents is unavailable or errors, treat the shop as not covered. Never call run_agent from this task. Per shop that is not covered: pull last 7 days vs previous 7 days from all connected platforms (facebook__*, google_ads__* with micros/1000000, tiktok__*, linkedin__*, ga4__*). Generate full client report: Executive Summary, Performance by Platform table, What Worked (3-5 wins), What Needs Improvement (3-5 issues with root causes), Recommendations, and Talking Points for client call. Calculate blended ROAS via GA4. Use client-friendly language (no jargon). Save as ~/Desktop/ADUP-Reports/{client-slug}/{YYYY-MM}/{client}_weekly_{YYYY-MM-DD}.md (mkdir -p first). Then generate a PPTX presentation from the content and save as {client}_weekly_{YYYY-MM-DD}.pptx in same folder. Open Finder to the folder after saving: open ~/Desktop/ADUP-Reports/{client-slug}/{YYYY-MM}/"
 )
 
 create_scheduled_task(
   taskId: "adup-client-report-monthly",
   description: "Monthly client performance report with PPTX",
   cronExpression: "0 9 1 * *",
-  prompt: "Run /adup:client-report for all clients (monthly edition). Call list_shops ONCE to get every shop's slug and connected_platforms. Call set_active_shop once up front only so the platform tools become discoverable (re-call it for a shop whose tools are not listed); NEVER rely on it for routing. For each shop, pass shop_slug=\"<slug>\" explicitly on EVERY data and report call — these scheduled runs share one API key and can run concurrently, so an ambient active shop set by one run clobbers another and a task can read or write the wrong client's data. DEDUPE FIRST, per shop: call list_agents(shop_slug=\"<slug>\"); if any agents[] entry has agent_type client_reporting or google_sheets with is_active true, SKIP this shop entirely and print '<slug>: skipped — managed Reporting Skill active' (Tara's managed agent already drafts this report into the same review queue; a second local draft is a duplicate and a second cost). If list_agents is unavailable or errors, treat the shop as not covered. Never call run_agent from this task. Per shop that is not covered: pull full previous month data from all connected platforms (facebook__*, google_ads__*, tiktok__*, linkedin__*, ga4__*). Include: Executive Summary, Platform Performance MoM comparison, Conversion Funnel Analysis (ga4__get_conversion_funnel(shop_slug=\"<slug>\")), Budget Utilization Review, Channel Mix (GA4 revenue attribution), Creative Performance Summary, What Worked (top 5), What Needs Improvement (top 5 with root causes), Strategic Recommendations for next month, and Talking Points. Save as ~/Desktop/ADUP-Reports/{client-slug}/{YYYY-MM}/{client}_monthly_{YYYY-MM-01}.md (mkdir -p first). Generate PPTX with slides: Title, Exec Summary, Platform Performance, Funnel, Budget Review, Channel Mix, Wins, Improvements, Recommendations. Save as {client}_monthly_{YYYY-MM-01}.pptx in same folder. Open Finder after saving."
+  prompt: "Run /adup:client-report for all clients (monthly edition). Call list_shops ONCE to get every shop's slug and connected_platforms. Call set_active_shop once up front only so the platform tools become discoverable (re-call it for a shop whose tools are not listed); NEVER rely on it for routing. For each shop, pass shop_slug=\"<slug>\" explicitly on EVERY data and report call — these scheduled runs share one API key and can run concurrently, so an ambient active shop set by one run clobbers another and a task can read or write the wrong client's data. DEDUPE FIRST, per shop: call list_agents(shop_slug=\"<slug>\"); if any agents[] entry has agent_type client_reporting or google_sheets with is_active true, SKIP this shop entirely and print '<slug>: skipped — managed Reporting Agent active' (Tara's managed agent already drafts this report into the same review queue; a second local draft is a duplicate and a second cost). If list_agents is unavailable or errors, treat the shop as not covered. Never call run_agent from this task. Per shop that is not covered: pull full previous month data from all connected platforms (facebook__*, google_ads__*, tiktok__*, linkedin__*, ga4__*). Include: Executive Summary, Platform Performance MoM comparison, Conversion Funnel Analysis (ga4__get_conversion_funnel(shop_slug=\"<slug>\")), Budget Utilization Review, Channel Mix (GA4 revenue attribution), Creative Performance Summary, What Worked (top 5), What Needs Improvement (top 5 with root causes), Strategic Recommendations for next month, and Talking Points. Save as ~/Desktop/ADUP-Reports/{client-slug}/{YYYY-MM}/{client}_monthly_{YYYY-MM-01}.md (mkdir -p first). Generate PPTX with slides: Title, Exec Summary, Platform Performance, Funnel, Budget Review, Channel Mix, Wins, Improvements, Recommendations. Save as {client}_monthly_{YYYY-MM-01}.pptx in same folder. Open Finder after saving."
 )
 ```
 
@@ -517,7 +517,7 @@ OPTIMIZATION (targeted days)
 
 REPORTING — CLIENT
   08:00  Monday Briefing ................ Mon
-  15:00  Weekly Report + PPTX ........... Fri        (skips brands with an active managed Reporting Skill)
+  15:00  Weekly Report + PPTX ........... Fri        (skips brands with an active managed Reporting Agent)
   09:00  Monthly Report + PPTX .......... 1st of month (same)
 
 Reporting per brand:
