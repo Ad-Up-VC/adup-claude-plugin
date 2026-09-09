@@ -57,13 +57,14 @@ Two connectors exist beyond it, and only if you need them:
 ### Environments
 
 Production needs no configuration, and the connector cannot be moved off it — its URL is a
-literal. `ADUP_API_BASE` redirects only the direct central-api calls (reports, proposals, creative
-assets), so setting it splits the plugin across two environments: MCP tools from production,
-everything else from wherever you pointed it. Useful for testing, not a supported setup. See
-`README.md`.
+literal, and it signs in (OAuth 2.0) against the production portal. There are no direct central-api
+calls left to redirect, so `ADUP_API_BASE` is gone. Another environment is a hand-added connector
+against that gateway (`claude mcp add --transport http adup-staging
+https://gateway-staging.adup.io/mcp`), which runs its own sign-in against that environment's
+portal. See `README.md`.
 
-**A key belongs to exactly one environment.** A key from another environment returns
-`invalid_token` while being perfectly valid — check the environment before blaming the key.
+**A sign-in belongs to exactly one environment.** A session signed in on one gateway is unknown to
+the others; `invalid_token` from the wrong connector is expected, not a broken account.
 
 ---
 

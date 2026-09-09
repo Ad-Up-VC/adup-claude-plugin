@@ -84,36 +84,33 @@ if [ "$VERIFY" = "1" ]; then
   servers=$(python3 -c "import json;print(len(json.load(open('.mcp.json'))['mcpServers']))")
   [ "$servers" = "1" ] || note ".mcp.json declares $servers servers — the contract is ONE aggregated connector"
 
-  # The key must come from the plugin's own config field, NOT from a shell
-  # variable. `${ADUP_API_KEY}` only ever expanded in the Claude Code CLI; every
-  # GUI install (desktop upload, claude.ai connector) received the literal
-  # string and authenticated with it, so the connector 401'd with no way to fix
-  # it from the UI. `${user_config.KEY}` is filled from the field declared in
-  # plugin.json and resolves on every surface.
-  key=$(python3 -c "
-import json
-h=json.load(open('.mcp.json'))['mcpServers'].get('adup',{}).get('headers',{})
-print(h.get('Authorization',''))")
-  case "$key" in
-    'Bearer ${user_config.ADUP_API_KEY}') ;;
-    *) note ".mcp.json Authorization must be 'Bearer \${user_config.ADUP_API_KEY}', not a literal key or a shell variable (got: ${key:0:32}…)" ;;
-  esac
-
-  # ...and the field it reads must actually be declared, or the header resolves
-  # to nothing and every request goes out unauthenticated.
-  python3 - <<'PY' || note "plugin.json must declare userConfig.ADUP_API_KEY as a required, sensitive string"
+  # v2.0.0 — the connector authenticates with OAuth 2.0: Claude Code runs the
+  # MCP authorization flow against the gateway and keeps the tokens in the OS
+  # keychain (TARA_PLUGIN_OAUTH2_PLAN.md WS5). A static Authorization header
+  # DISABLES that flow for the whole entry, so the connector must carry NO
+  # headers at all — and no `oauth` block either: dynamic client registration
+  # against the gateway is the contract, a pinned client id / callback port is
+  # not (a fixed port collides on user machines for nothing).
+  python3 - <<'PY' || note ".mcp.json adup connector must be header-less (OAuth sign-in): no 'headers' and no 'oauth' keys"
 import json, sys
-f = json.load(open('.claude-plugin/plugin.json')).get('userConfig', {}).get('ADUP_API_KEY')
-ok = (
-    isinstance(f, dict)
-    and f.get('type') == 'string'
-    and f.get('required') is True
-    and f.get('sensitive') is True
-    and f.get('title')
-    and f.get('description')
-)
-sys.exit(0 if ok else 1)
+c = json.load(open('.mcp.json'))['mcpServers'].get('adup', {})
+sys.exit(0 if 'headers' not in c and 'oauth' not in c else 1)
 PY
+
+  # ...and the old key field must be gone, or Claude Code keeps prompting for
+  # a key that nothing reads.
+  python3 - <<'PY' || note "plugin.json must not declare userConfig.ADUP_API_KEY any more (OAuth sign-in replaced it)"
+import json, sys
+uc = json.load(open('.claude-plugin/plugin.json')).get('userConfig') or {}
+sys.exit(1 if 'ADUP_API_KEY' in uc else 0)
+PY
+
+  # ...and no skill or script may authenticate with a raw key: every direct
+  # central-api call became a gateway tool (plan WS4). A reintroduced
+  # `Bearer $ADUP_API_KEY` would silently fail on every OAuth install.
+  if grep -rnE 'Bearer \$\{?ADUP_API_KEY' skills install.sh --exclude=pack.sh 2>/dev/null; then
+    note "a skill or script still authenticates with \$ADUP_API_KEY — use the gateway tools instead (plan WS4)"
+  fi
 
   # The connector URL must be a LITERAL https URL.
   #
@@ -154,7 +151,7 @@ by = {p['name']: p for p in d['plugins']}
 sys.exit(0 if list(by) == ['adup'] and by['adup'].get('source') == './' else 1)
 PY
 
-  [ "$fail" = "0" ] && echo "pack --verify: manifests OK (v$pv, 1 connector)"
+  [ "$fail" = "0" ] && echo "pack --verify: manifests OK (v$pv, 1 header-less OAuth connector)"
   exit "$fail"
 fi
 
