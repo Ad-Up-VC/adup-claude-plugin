@@ -19,13 +19,20 @@ Facebook Ads · Google Ads · Google Analytics 4 · Google Search Console · Lin
 claude plugin install adup --plugin-dir /path/to/adup-claude-plugin
 ```
 
-### 2. Enter your employee API key
+### 2. Sign in
 
-Enabling the plugin prompts for your **Employee API key**. Paste the personal `emp_…` key from
-[Tara → My MCP setup](https://tara.adup.io/my-mcp-setup). That is all the connector needs.
+There is no key to paste. The first time Claude uses the `adup` connector it opens your browser at
+Tara: sign in with your normal Tara login and click **Approve**. To trigger it deliberately:
 
-Optional: run `/adup:setup` afterwards to deploy the scheduled reporting tasks and to store the key
-for the skills that call the ADUP API directly (client reports, proposals, creative uploads).
+```bash
+claude mcp login plugin:adup:adup      # from any terminal
+```
+
+or, inside a Claude Code session, `/mcp` → **adup** → **Authenticate**. In the Claude desktop app's
+Code tab, run the terminal command once — the sign-in is shared.
+
+Optional: run `/adup:setup` afterwards to deploy the scheduled reporting tasks (it also removes
+credentials left behind by plugin versions before 2.0).
 
 ```
 /adup:setup
@@ -45,43 +52,42 @@ The plugin ships **one** MCP connector, `adup`:
 |---|---|
 | Name | `adup` |
 | URL | `https://gateway.adup.io/mcp` |
-| Auth | `Authorization: Bearer ${user_config.ADUP_API_KEY}` |
+| Auth | OAuth 2.0 — sign in from Claude; tokens are kept by Claude Code in the OS keychain and refreshed automatically |
 
 That single connector aggregates every platform your shop has connected — there are no
 per-platform connectors to add.
 
-### Your key
+### Your sign-in
 
-When you enable the plugin it asks for your **Employee API key** — the personal `emp_…` key from
-Tara → **My MCP setup**. The value is masked and stored in your OS keychain, and the connector
-reads it from there. To change it later, run `/adup:reset`.
+Signing in issues a short-lived access token and a refresh token to Claude Code. Claude refreshes
+them itself; you sign in again only after 30 days without using the plugin, or after signing the
+device out. Every device you sign in from is listed in Tara under **My MCP setup → Connected
+devices**, where you can sign it out at any time. `/adup:reset` signs this machine out or switches
+to another account.
 
-Before v1.7.0 the key came from an `ADUP_API_KEY` environment variable. That only ever worked in
-the Claude Code CLI: every other surface sent the literal string `${ADUP_API_KEY}` as the
-credential and the connector 401'd with no way to fix it from the UI.
+Before 2.0 the plugin asked for an employee API key at enable time and older versions wrote it to
+environment files. Nothing reads those any more; `/adup:setup` and `/adup:reset` remove them.
+
+#### Automation machines
+
+A machine that cannot open a browser (a server, a CI runner) either signs in once with
+`claude mcp login plugin:adup:adup --no-browser`, or uses the employee API key from Tara → **My MCP
+setup** through a second, hand-added connector:
+
+```bash
+./install.sh --automation emp_…
+# = claude mcp add --transport http --scope user adup-automation https://gateway.adup.io/mcp --header "Authorization: Bearer emp_…"
+```
+
+The skills reference tools by name, so they work over either connector. Treat that key like a
+password and rotate it from Tara if it may have leaked.
 
 #### Non-production environments
 
-The connector URL is a literal, so the connector always points at production. A key belongs to
-exactly one environment, so a staging or dev key returns `invalid_token` here even though it is
-valid where it came from. Reaching another gateway needs a variant build of the plugin or a custom
-connector added by hand.
-
-`ADUP_API_BASE` still redirects the **direct** central-api calls the skills make (reports,
-proposals, creative assets, `/me/skills`) and defaults to production:
-
-```bash
-export ADUP_API_BASE=https://centralapi-staging.adup.io   # staging
-export ADUP_API_BASE=https://centralapi-dev.kodeia.com    # dev
-```
-
-Note this only moves half the plugin: MCP tools still answer from production. That split is a
-testing tool, not a supported configuration.
-
-
-A key belongs to exactly one environment: a staging key used against production returns
-`invalid_token` even though it is valid. `/adup:connect` tells you which failure you are looking at,
-and `/adup:reset` walks through replacing the key.
+The connector URL is a literal, so the plugin always signs in against production. Testing another
+environment is a hand-added connector against that gateway (`claude mcp add --transport http
+adup-staging https://gateway-staging.adup.io/mcp`), which runs its own sign-in against that
+environment's portal.
 
 ### Choosing which client you're working on
 
@@ -89,15 +95,15 @@ Three steps, in this order:
 
 1. **`list_shops`** — lists the brands you can access and the platforms connected to each.
 2. **`set_active_shop(shop_slug="<slug>")`** — required before the platform tools
-   appear at all. Until a shop is active (or your key has exactly one shop), the
+   appear at all. Until a shop is active (or your account has exactly one shop), the
    connector only exposes its handful of built-in tools — no `facebook__*`,
    no `google_ads__*`. If tools seem to be "missing", this is almost always why.
    The tool list changes when the active shop changes, so reload/reconnect the
    connector after switching.
 3. **Pass `shop_slug="<slug>"` on every data call.** The active shop is stored once
-   per API key, so anything running in parallel (scheduled tasks, loops over
-   several clients) can otherwise read the wrong client's data. An explicit
-   `shop_slug` always wins over the active shop.
+   per sign-in (one slot per signed-in device), so anything running in parallel
+   (scheduled tasks, loops over several clients) can otherwise read the wrong
+   client's data. An explicit `shop_slug` always wins over the active shop.
 
 Tool names are namespaced `platform__tool` — e.g. `facebook__get_ad_insights`,
 `google_ads__execute_google_ads_gaql_query`, `ga4__get_ecommerce_performance`. Note the
@@ -108,11 +114,10 @@ Google Ads prefix is `google_ads__`, not `google__`.
 ### Setup & Connection
 | Skill | Command | Description |
 |-------|---------|-------------|
-| Setup | `/adup:setup` | Deploy scheduled tasks; store the key for direct API calls |
+| Setup | `/adup:setup` | Check the sign-in, remove pre-2.0 leftovers, deploy scheduled tasks |
 | Connect | `/adup:connect` | Verify connection and see available shops |
-| Reset | `/adup:reset` | Change the employee API key, or clear a stale one |
+| Reset | `/adup:reset` | Sign this machine out, or switch to another Tara account |
 | Shop Select | `/adup:shop-select` | Switch active client (agencies) |
-| Sync Skills | `/adup:sync-skills` | Pull the skills your agency installed in the ADUP portal into your local Claude |
 
 ### Analysis
 | Skill | Command | Description |
@@ -142,7 +147,7 @@ Google Ads prefix is `google_ads__`, not `google__`.
 | Skill | Command | Description |
 |-------|---------|-------------|
 | Creative Workspace | `/adup:creative-workspace` | Init a local creative workspace (folders + markdown) or run doctor checks |
-| Launch | `/adup:creative-launch` | Validate, upload, and propose ads in bulk per ad × platform × language |
+| Launch | `/adup:creative-launch` | Validate, upload (credential-free presigned uploads), and propose ads in bulk per ad × platform × language |
 | Status | `/adup:creative-status` | Sync approval statuses back into the workspace; `--csv` / `--sheet` exports |
 | Creative Import | `/adup:creative-import` | Import a winning ad for cross-platform relaunch, or a spreadsheet copy matrix |
 
@@ -150,8 +155,30 @@ Google Ads prefix is `google_ads__`, not `google__`.
 | Skill | Command | Description |
 |-------|---------|-------------|
 | Monday Briefing | `/adup:monday-briefing` | Per-client executive summary with wins & concerns |
-| Client Report | `/adup:client-report` | Client-ready report with talking points |
+| Client Report | `/adup:client-report` | Client-ready report with talking points — offers Tara's existing draft first when one covers the period |
 | Anomaly Alerts | `/adup:anomaly-alerts` | Detect spend spikes, delivery stops, CTR drops |
+
+## Tara's agents
+
+Agents are configured, run and reviewed in Tara under **Agents** — the plugin has no agent
+commands. The two only meet at the review queue: when Tara already drafts a brand's report,
+`/adup:setup` does not create the local weekly/monthly reporting tasks for that brand, and
+`/adup:client-report` offers Tara's draft before building one.
+
+## Upgrading
+
+### From 1.x to 2.0
+
+After the update the connector no longer carries your key, so Claude asks you to sign in the next
+time it uses ADUP — approve once in the browser and you are done. Your old employee key stays valid
+(automations that use it keep working), but nothing in the plugin reads it any more: run
+`/adup:setup` once to remove the cleartext copies earlier versions wrote to your machine.
+
+### From 1.7
+
+`/adup:sync-skills` is gone (the portal skill library it synced no longer exists). `/adup:setup`
+lists the personal `adup-*` skills the old command wrote under `~/.claude/skills/`, asks, and
+removes them.
 
 ## Usage examples
 
@@ -177,7 +204,7 @@ Compare Facebook vs Google for Adidas EU.
 
 ## Requirements
 
-- Claude Code 1.0.0+
+- Claude Code 2.1.231+ (MCP OAuth for plugin connectors, loopback callback on `localhost`)
 - Active ADUP account — [tara.adup.io](https://tara.adup.io)
 - At least one connected ad platform
 

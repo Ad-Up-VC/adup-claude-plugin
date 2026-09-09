@@ -5,25 +5,23 @@ description: Connect your ADUP account and verify which platforms are active. Ru
 
 # Connect to ADUP
 
-Verify the ADUP connection, show the user their role and accessible shops, and confirm which platforms are connected per shop.
+Verify the ADUP connection, show the user who they are signed in as, their role and accessible
+shops, and confirm which platforms are connected per shop.
 
-## Where the key comes from
+## How you're signed in
 
-The connector reads the key from the plugin's own **Employee API key** field, filled in when the
-plugin was enabled. It is not a shell variable any more: `ADUP_API_KEY` only ever expanded in the
-Claude Code CLI, so every GUI install authenticated with the literal string `${ADUP_API_KEY}` and
-got a 401 nobody could fix from the UI.
+The `adup` connector authenticates with **OAuth 2.0**: the first time Claude uses it, the browser
+opens Tara, you sign in with your normal Tara login and approve, and Claude keeps the tokens in the
+OS keychain and refreshes them itself. There is no key in the plugin and no shell variable — do not
+look for `ADUP_API_KEY`, and never ask the user to paste a key.
 
-The connector is pinned to production (`https://gateway.adup.io/mcp`). A key is issued by ONE
-environment and authenticates only against that one, so a staging or dev key returns
-`invalid_token` here while being perfectly valid where it came from.
-
-`ADUP_API_BASE` still applies to the skills that call central-api directly over bash (reports,
-proposals, creative uploads) and still defaults to production — it does **not** move the connector.
+The connector is pinned to production (`https://gateway.adup.io/mcp`) and signs in against the
+production portal. Another environment is a hand-added connector against that gateway.
 
 ## Steps
 
-1. Call `list_shops` on the `adup` base connector. The gateway resolves your identity via Central API `/api/v1/me`, returning:
+1. Call `list_shops` on the `adup` connector. The gateway resolves your identity via Central API
+   `/api/v1/me`, returning:
    - `role` (`owner` / `team_lead` / `manager` / `analyst` / `read_only`)
    - `accessible_shops` — only the shops you've been assigned to (or all shops if you're an owner)
    - Per-shop connected platforms
@@ -65,9 +63,11 @@ After listing shops, briefly remind the user what their role allows:
 - **analyst**: can see assigned shops, propose changes — every change goes to `pending_review` and requires approval by a team_lead/manager/owner.
 - **read_only**: can see assigned shops and read data, but cannot propose any change.
 
-## New skills from your agency
+## Reports drafted by Tara
 
-If your agency owner has installed additional skills (e.g., "LinkedIn Engagement Analysis") in the ADUP portal, run `/adup:sync-skills` to pull them into your local Claude. They'll be available after a Claude restart.
+Tara's agents draft reports per brand on their own schedule; they are configured, run and reviewed
+in Tara under **Agents** (`https://tara.adup.io/agents`), not from here. `/adup:client-report`
+offers Tara's draft first when one covers the period.
 
 ## Switching shops — refresh the tool list
 
@@ -77,7 +77,7 @@ All tools are served by the single `adup` connector, namespaced per platform
 never `google__`.
 
 **The tool list is gated on the active shop.** Until you call `set_active_shop`
-(or your key has exactly one shop), only the gateway's own virtual tools are
+(or your account has exactly one shop), only the gateway's own virtual tools are
 listed — `list_shops`, `set_active_shop` and friends — and no platform tools at
 all. After `set_active_shop`, the available tools change to that shop's connected
 platforms. The gateway emits a `notifications/tools/list_changed`, but most MCP
@@ -90,31 +90,31 @@ you'll see only `facebook__*` and `ga4__*` tools.
 Passing `shop_slug` on a call does **not** change what is listed — it only changes
 which client an already-listed tool reads from. You still need the right shop
 active for its tools to exist, and you should still pass `shop_slug` explicitly on
-every data call (the active shop is shared per API key and parallel runs race).
+every data call (the active shop is one slot per signed-in device, and parallel
+runs on the same sign-in race).
 
 ## Error handling
 
-**Auth error (`-32001`, `invalid_token`).** The gateway now says what to do in the error's `data`:
-`reason: credential_rejected`, `action: reauthenticate`, and an `authorize_url`. Read it rather than
-guessing, then tell the user:
+**Auth error (`-32001`, `invalid_token`, or "server requires authentication").** The sign-in on
+this machine is missing, expired after long inactivity, or was signed out from Tara (**My MCP setup
+→ Connected devices**). The gateway's error `data` says so (`reason: credential_rejected`,
+`action: reauthenticate`) — read it rather than guessing, then tell the user how to sign in again
+on their surface:
 
-> Your ADUP key was rejected. It may have been regenerated, revoked, or issued by a different
-> environment. Get a current key from Tara → **My MCP setup**, then update the plugin's
-> **Employee API key** field (see `/adup:reset`).
+| surface | how |
+|---|---|
+| Claude Code CLI | `/mcp` → **adup** → **Authenticate** |
+| any terminal | `claude mcp login plugin:adup:adup` |
+| Claude desktop app (Code tab) / Cowork | run the terminal command once on this Mac |
 
-Offer to open the key page for them — `open https://tara.adup.io/my-mcp-setup` on macOS. Do not tell
-them to `export ADUP_API_KEY=…`; that no longer feeds the connector.
-
-**A rejected key cannot fix itself.** Claude Code disables OAuth fallback whenever a connector
-carries a static Authorization header, so nothing will prompt the user to re-authenticate — the
-field has to be updated by hand. Say so plainly instead of suggesting they restart and retry.
+Never send them to fetch a key, and never suggest `export ADUP_API_KEY=…` — nothing reads it.
 
 **Transient failure (`-32603`).** Not an auth problem. Central-api is briefly unavailable and the
-gateway already retried. Say so and suggest retrying in a moment — do NOT send the user to check
-their key, and do not offer to re-enter it.
+gateway already retried. Say so and suggest retrying in a moment — do NOT tell the user to sign in
+again.
 
-**No active plan (`-32003`).** The key is valid; the organisation has no active plan, so the gateway
-serves no tools. This is a billing answer — point at the portal, never at the key.
+**No active plan (`-32003`).** The sign-in is valid; the organisation has no active plan, so the
+gateway serves no tools. This is a billing answer — point at the portal, never at the sign-in.
 
 **Server unreachable (connection refused or timeout).**
 "Cannot reach the ADUP gateway at `https://gateway.adup.io/mcp`. Check whether the service is up."

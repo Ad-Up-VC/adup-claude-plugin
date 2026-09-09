@@ -177,6 +177,14 @@ Generate client-ready reports with:
   - *"Address the LinkedIn CPL increase — propose audience refinement"*
 - Attribution transparency: GA4 blended ROAS vs platform-reported
 
+### 9. Tara's agents
+
+Tara's agents draft reports server-side, per brand, on their own schedule, into the same review
+queue your team already approves reports in. They are configured, run and reviewed in Tara under
+**Agents**; the plugin has no agent commands. The two never double up: `/adup:setup` drops the
+local reporting tasks for brands Tara already reports on, and `/adup:client-report` offers Tara's
+draft before building one.
+
 ---
 
 ## Architecture
@@ -216,11 +224,14 @@ Central API
 claude plugin install adup --plugin-dir /path/to/adup-claude-plugin
 ```
 
-### 2. Set up your API key
+### 2. Sign in
+The first time Claude uses the `adup` connector it opens your browser at Tara — sign in with your
+normal Tara login and click **Approve**. To trigger it deliberately: `claude mcp login plugin:adup:adup`
+(or `/mcp` → **adup** → **Authenticate** in a Claude Code session). No key to paste. Then, optionally:
 ```
 /adup:setup
 ```
-Get your key from [tara.adup.io/settings/api](https://tara.adup.io/settings/api).
+to deploy the scheduled tasks.
 
 ### 3. Verify connection
 ```
@@ -239,11 +250,11 @@ Set your budget caps, % limits, and approval thresholds at [tara.adup.io](https:
 
 ---
 
-## Available skills (20)
+## Available skills
 
 | Category | Skill | What it does |
 |----------|-------|-------------|
-| **Setup** | `/adup:setup` | Configure API key |
+| **Setup** | `/adup:setup` | Check the sign-in, deploy scheduled tasks |
 | | `/adup:connect` | Verify connection |
 | | `/adup:shop-select` | Switch client (agencies) |
 | **Analysis** | `/adup:ads-overview` | Quick cross-platform summary |
