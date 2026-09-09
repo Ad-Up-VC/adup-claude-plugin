@@ -1,9 +1,9 @@
 # adup-claude-plugin
 
-**Role:** Claude Code plugin (`adup`, repo `adup-claude-plugin`) exposing the ADUP MCP connector and dynamically-registered skills.
+**Role:** Claude Code plugin (`adup`, repo `adup-claude-plugin`) exposing the ADUP MCP connector and its bundled analyst skills.
 
 ## Phase 0 state
-Single `adup` connector in `.mcp.json`. 29 bundled skill directories. 1 agent (`adup-analyst.md`). Chat-stream references in skills cleaned.
+Single `adup` connector in `.mcp.json`. 27 bundled skill directories. 1 agent (`adup-analyst.md`). Chat-stream references in skills cleaned. No agent-operating command (see **Tara drafts reports too**).
 
 ## .mcp.json — single aggregated connector
 ONE connector: `adup → https://gateway.adup.io/mcp`
@@ -82,11 +82,13 @@ most MCP clients (Claude Code / Cowork) don't act on it — reload tools / recon
 to pick up the newly-active shop's tools.
 
 ## Tool naming
-The **virtual** tools are served by the gateway itself and are **unprefixed**: the six originals
+The **virtual** tools are served by the gateway itself and are **unprefixed**: the six
 `list_shops`, `set_active_shop`, `create_report`, `get_kpi`, `get_report_template`,
-`get_report_branding`, plus (v1.8.0, tara-gateway "PR B") the seven managed-agent tools
-`list_agents`, `get_agent_runs`, `get_agent_output`, `run_agent`, `list_agent_skills`,
-`publish_agent_skill`, `get_agent_skill_package` — see **Managed agents** below.
+`get_report_branding`. The gateway also lists a handful of agent tools; three of them —
+`list_agents`, `get_agent_runs`, `get_agent_output` (html only) — are read by the setup dedupe
+and the client-report pre-flight, and nothing else uses them (see **Tara drafts reports too**
+below). `run_agent`, `get_run_context`, `report_ready`, `report_failed` and the
+`*_agent_skill*` tools must never be called by a skill.
 
 **Every other tool is namespaced `platform__tool`** (double underscore). The only
 valid platform prefixes are:
@@ -161,51 +163,47 @@ another's, and a call that relied on the ambient shop reads the wrong client. So
 There is no request-header mechanism for pinning the shop — the gateway does not
 read one. `shop_slug` per call is the only race-free option.
 
-## Managed agents (v1.8.0) — `/adup:agents` replaces `/adup:sync-skills`
-Plan: `PLUGIN_MANAGED_AGENTS_PLAN.md` (repo root of the GitHub folder). The Tara portal's skill
-library — the source `sync-skills` curled — is removed; the agency's skills now run **inside**
-Tara's managed agents (`Modules/ClientAgents` on central-api: `client_reporting` HTML+PPTX,
-`google_sheets` XLSX, `assistant` chat). The plugin no longer executes the agency's skills; it
-**operates** the agents through the gateway's unprefixed virtual tools — no curl, no
-`ADUP_API_KEY` in bash, so it works in Cowork and cloud sessions where the old sync never did.
+## Tara drafts reports too — the plugin has NO agent commands (v1.9.0)
+Tara's agents (`Modules/ClientAgents` on central-api) are configured, run and reviewed **in Tara
+only**, under **Agents** (`<TARA>/agents`). The plugin ships no command that lists, runs, or
+publishes anything agent-related: `/adup:agents` (v1.8.x, dev only, never on main) and
+`/adup:sync-skills` (≤ 1.7, synced a portal skill library that no longer exists) were both removed
+in 1.9.0 — see `PLUGIN_SKILLS_REMOVAL_PLAN.md` at the GitHub folder root. Do not re-add either.
 
-- `skills/agents/SKILL.md` — `/adup:agents` `status` (default) · `open <agent>` · `run <agent>
-  [period] [--focus]` · `skills` · `pull <skill>` · `publish <folder>` · `cleanup`. Brand resolved
-  the standard way (`list_shops` → `set_active_shop` → explicit `shop_slug` on every call).
-- Hard rules baked into every prompt: `run_agent` spends the per-run budget → confirm verbatim
-  first ("This starts a {label} run for {brand} and spends its per-run budget. Continue?"), never
-  in a scheduled task, never in a loop over shops; review/approval/configuration happen in Tara
-  (`/agents/<agent_type>`, `/client-reports/<id>`) — the plugin links, never renders/approves;
-  `report_ready` / `report_failed` are worker tools — never call them; `publish` shows the full
-  `SKILL.md` and confirms before upload (it becomes instructions inside an agent that reads client
-  data); task removal matches the setup skill's own `taskId`s only and prints each name before and
-  after.
-- `get_agent_output(kind='html')` → `{client_report_id, portal_path}`; `pptx`/`xlsx` → 15-min
-  signed URL, downloaded with curl into `~/Desktop/ADUP-Reports/<slug>/<YYYY-MM>/`.
-- Excluded on purpose (plan §2 C7–C9, C11): activate/deactivate, schedule/budget/settings edits,
-  chatting with the Assistant, PPTX template upload — all Tara.
+What survives are two **silent** hooks, kept so a brand does not get two drafts and two costs in
+the same review queue:
 
-**Dedupe with local automation.** `/adup:setup` Step 6 calls `list_agents` per shop. The 14 local
-tasks are **agency-wide** (each prompt loops all shops), so per-brand dedupe lives **inside** the
-two reporting prompts (`adup-client-report-weekly` / `-monthly` skip brands with an active
-`client_reporting`/`google_sheets` agent at run time); when *every* brand is covered the two tasks
-are not created and existing ones are deleted (`list_scheduled_tasks` → exact `taskId` match →
-`delete_scheduled_task`, printed before/after); a brand whose agent is later switched off is
-picked up again by the run-time check, and the tasks are re-created on the next setup. Without the
-scheduled-tasks tools (Cowork/cloud): list and instruct, never claim removal. Monitoring,
-optimisation, Monday briefing, internal reviews, creative playbook: untouched.
-`/adup:client-report` pre-flight 2b: `get_agent_runs(shop_slug, 'client_reporting', limit 3)` →
-a `ready` run covering the period is offered first (default: open the Tara link); when building
-locally, `get_report_template().agency_instructions` is applied as **appended** house style —
-after, never over, the contract/safety/whitelabel/attribution rules.
+- **`/adup:setup` Step 6 "Brands Tara already reports on".** Calls `list_agents(shop_slug)` per
+  shop. The 14 local tasks are **agency-wide** (each prompt loops all shops), so per-brand dedupe
+  lives **inside** the two reporting prompts (`adup-client-report-weekly` / `-monthly` skip brands
+  where an `agents[]` entry of type `client_reporting` / `google_sheets` has `is_active: true`);
+  when *every* brand is covered the two tasks are not created and existing ones are deleted
+  (`list_scheduled_tasks` → exact `taskId` match → `delete_scheduled_task`, printed before/after);
+  a brand whose Tara reporting is later switched off is picked up again by the run-time check, and
+  the tasks are re-created on the next setup. `list_agents` missing or erroring → treat every
+  brand as not covered. Without the scheduled-tasks tools (Cowork/cloud): list and instruct, never
+  claim removal. Monitoring, optimisation, Monday briefing, internal reviews, creative playbook:
+  untouched.
+- **`/adup:client-report` pre-flight 2b "Already drafted by Tara?".**
+  `get_agent_runs(shop_slug, 'client_reporting', limit 3)` → a `ready` run covering the period is
+  offered first (default: open the Tara link from `get_agent_output(kind='html')` →
+  `{client_report_id, portal_path}`); when building locally,
+  `get_report_template().agency_instructions` is applied as **appended** house style — after,
+  never over, the contract/safety/whitelabel/attribution rules.
 
-**`sync-skills` stub.** `skills/sync-skills/SKILL.md` ships one release (1.8.x) as a deprecation
-stub: explains, runs the same `cleanup` (`~/.claude/skills/adup-*/` containing a `SKILL.md`, listed
-+ confirmed + deleted, nothing else touched), points to `/adup:agents`. Delete the directory in
-1.9.0. Personal-skill layout facts that still matter for cleanup: Claude Code discovers
-`~/.claude/skills/<name>/SKILL.md` exactly one level deep and the directory name is the command,
-which is why the old sync wrote the flat `adup-<slug>` prefix — that is the only pattern cleanup
-matches.
+**Vocabulary rule for both hooks.** User-facing lines say "drafted by Tara" / "Tara already
+reports on this brand" — never "managed agent", never "agent run", and never a plugin command for
+agents (there is none). The only agent-related link a skill prints is the plain hub URL
+`<TARA>/agents` (configuration) or `<TARA>/client-reports/<id>` (review). Never call `run_agent`
+from any skill or task prompt: Tara's reporting has its own schedule and its own budget.
+
+**Personal skills written by plugin ≤ 1.7.** `/adup:sync-skills` wrote `~/.claude/skills/adup-<slug>/SKILL.md`
+per synced skill; those directories have no source any more and nothing else removes them.
+`/adup:setup` Step 3b lists (only `~/.claude/skills/adup-*/` that contain a `SKILL.md`), confirms,
+deletes, prints each path — nothing else under `~/.claude/skills/` is ever touched. Layout facts:
+Claude Code discovers `~/.claude/skills/<name>/SKILL.md` exactly one level deep and the directory
+name is the command, which is why the old sync wrote the flat `adup-<slug>` prefix — that is the
+only pattern Step 3b matches.
 
 ## Approval rules are not readable with an employee key
 No tool and no gateway route reachable with an `emp_` key returns an organisation's approval
@@ -221,8 +219,8 @@ Related, from the same run: a write call with **no content at all** (no entity, 
 `reasoning` alone does not count) is refused with `-32602` and files nothing. Anything that
 names an entity or supplies a value still files, `reasoning` or not.
 
-## Bundled skills (29 directories)
-`ad-fatigue`, `ads-overview`, `agents`, `analytics`, `anomaly-alerts`, `blended-roas`, `budget-tracker`, `client-report`, `connect`, `create-ads`, `creative-import`, `creative-intelligence`, `creative-launch`, `creative-status`, `creative-workspace`, `cross-platform`, `facebook-ads`, `google-ads`, `google-optimize`, `inspiration`, `linkedin-optimize`, `manage-status`, `monday-briefing`, `optimize-budget`, `reset`, `setup`, `shop-select`, `sync-skills` (deprecation stub, delete in 1.9.0), `tiktok-optimize`.
+## Bundled skills (27 directories)
+`ad-fatigue`, `ads-overview`, `analytics`, `anomaly-alerts`, `blended-roas`, `budget-tracker`, `client-report`, `connect`, `create-ads`, `creative-import`, `creative-intelligence`, `creative-launch`, `creative-status`, `creative-workspace`, `cross-platform`, `facebook-ads`, `google-ads`, `google-optimize`, `inspiration`, `linkedin-optimize`, `manage-status`, `monday-briefing`, `optimize-budget`, `reset`, `setup`, `shop-select`, `tiktok-optimize`.
 
 Skills are registered by directory presence (`skills/*/SKILL.md`); the slash-command name is the DIRECTORY name (Claude Code ignores the frontmatter `name` for command routing), so every skill's `name` must equal its directory — e.g. `skills/creative-launch/` → `/adup:creative-launch`, `skills/creative-status/` → `/adup:creative-status`. A frontmatter `name` that differs from the directory produces a command that does not exist; keep them in lockstep.
 
