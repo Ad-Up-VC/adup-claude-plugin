@@ -224,11 +224,14 @@ Central API
 claude plugin install adup --plugin-dir /path/to/adup-claude-plugin
 ```
 
-### 2. Set up your API key
+### 2. Sign in
+The first time Claude uses the `adup` connector it opens your browser at Tara — sign in with your
+normal Tara login and click **Approve**. To trigger it deliberately: `claude mcp login plugin:adup:adup`
+(or `/mcp` → **adup** → **Authenticate** in a Claude Code session). No key to paste. Then, optionally:
 ```
 /adup:setup
 ```
-Get your key from [tara.adup.io/settings/api](https://tara.adup.io/settings/api).
+to deploy the scheduled tasks.
 
 ### 3. Verify connection
 ```
@@ -251,7 +254,7 @@ Set your budget caps, % limits, and approval thresholds at [tara.adup.io](https:
 
 | Category | Skill | What it does |
 |----------|-------|-------------|
-| **Setup** | `/adup:setup` | Configure API key |
+| **Setup** | `/adup:setup` | Check the sign-in, deploy scheduled tasks |
 | | `/adup:connect` | Verify connection |
 | | `/adup:shop-select` | Switch client (agencies) |
 | **Analysis** | `/adup:ads-overview` | Quick cross-platform summary |

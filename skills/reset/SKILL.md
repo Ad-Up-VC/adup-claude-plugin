@@ -1,83 +1,62 @@
 ---
 name: reset
-description: Change the ADUP employee API key, or clear a stale one. Use when the key was regenerated, when a different employee takes over this machine, when the connector reports invalid_token, or when switching between ADUP environments.
+description: Sign out of ADUP on this machine or switch to another Tara account, and remove credentials left by key-based installs. Use when Claude should stop acting as you here, when another employee takes over the machine, or when the connector keeps reporting invalid_token after you were signed out from Tara.
 ---
 
-# Reset the ADUP key
+# Reset the ADUP sign-in
 
-The key lives in the plugin's **Employee API key** config field, filled in when the plugin was
-enabled. Older installs also left copies in three environment stores; those no longer feed the
-connector, but a stale copy still reaches the skills that call central-api directly, so a proper
-reset clears them too.
+The `adup` connector signs in with OAuth 2.0 — there is no key in the plugin any more. "Reset"
+therefore means: sign this machine out, and optionally sign in again as someone else.
 
-## 1. Replace the key in the plugin config
+## 1. Sign out on this machine
 
-The field is masked and stored in the OS keychain, so it cannot be read back or rewritten from a
-script — the user has to retype it.
+| surface | how |
+|---|---|
+| any terminal | `claude mcp logout plugin:adup:adup` — removes the tokens from the keychain |
+| Claude Code CLI | `/mcp` → **adup** → the clear/sign-out option when it is offered; otherwise the terminal command |
+| Cowork / Claude desktop app | the terminal command above, once, on this Mac |
 
-Tell them, in this order:
+Then make the sign-out stick server-side as well: Tara → **My MCP setup** → **Connected devices** →
+**Sign out** on the device (`https://tara.adup.io/my-mcp-setup`; offer
+`open https://tara.adup.io/my-mcp-setup` on macOS). Signing out there revokes the session within a
+minute even when the local tokens were not cleared — it is the backstop for a lost laptop.
 
-1. Get a current key: Tara → **My MCP setup** (`https://tara.adup.io/my-mcp-setup`). Offer to open
-   it: `open https://tara.adup.io/my-mcp-setup`. **Regenerate** there issues a new key and kills the
-   old one — only do that if the current key is compromised or lost, because every other machine
-   using it stops working immediately.
-2. Open the plugin's settings and use **Customize** on the ADUP plugin, if the surface offers it.
-3. If it does not, disable and re-enable the plugin — the config field is prompted at enable time.
+## 2. Sign in again, optionally as someone else
 
-Do not invent a path you have not seen; ask what the screen shows and work from that.
+`claude mcp login plugin:adup:adup`, or `/mcp` → **adup** → **Authenticate** in the CLI. The browser
+opens Tara. To switch accounts, click **Not you? Sign in as someone else** on the consent screen,
+log in with the other account, and approve.
 
-## 2. Clear stale environment copies
+## 3. Remove leftovers from key-based installs (plugin ≤ 1.9)
 
-Only for installs that ran `/adup:setup` before v1.7.0. Harmless to run either way.
+Older versions wrote the employee key in cleartext to three per-user places. Run the same
+list → confirm → remove block as `/adup:setup` Step 2 (LaunchAgent plists
+`~/Library/LaunchAgents/io.adup.env.*.plist`, the `ADUP_*` keys under `env` in
+`~/.claude/settings.json`, `export ADUP_*` lines in `~/.zshrc` / `~/.bashrc`, and
+`~/.claude/skills/adup-*/`). Harmless on a clean machine.
+
+## 4. Verify
+
+Run `/adup:connect`. It reports who you are signed in as, the role and the brands. If it still
+answers `invalid_token`, sign in again (Step 2). If the browser shows "This sign-in request can't
+be completed", the request expired — start again from Claude.
+
+## Automation keys
+
+A machine that cannot open a browser uses the employee API key through a **second, hand-added
+connector**, never through this plugin's own connector (see `/adup:setup` → **Automation
+machines**). To rotate that key: Tara → My MCP setup → **Regenerate key** (it kills the old key
+everywhere immediately), then on the automation machine:
 
 ```bash
-# LaunchAgent plists (macOS GUI apps read env from launchctl, not from a shell profile)
-for OLD in "$HOME/Library/LaunchAgents"/io.adup.env.*.plist; do
-  [ -e "$OLD" ] || continue
-  VAR="$(basename "$OLD" .plist)"; VAR="${VAR#io.adup.env.}"
-  launchctl unload "$OLD" 2>/dev/null || true
-  launchctl unsetenv "$VAR" 2>/dev/null || true
-  rm -f "$OLD"
-done
-
-# Claude Code settings
-python3 - "$HOME/.claude/settings.json" <<'PY'
-import json, sys
-path = sys.argv[1]
-try:
-    settings = json.load(open(path))
-except (FileNotFoundError, json.JSONDecodeError):
-    sys.exit(0)
-env = settings.get("env", {})
-for stale in ("ADUP_API_KEY", "ADUP_GATEWAY_BASE", "ADUP_API_BASE"):
-    env.pop(stale, None)
-json.dump(settings, open(path, "w"), indent=2)
-PY
-
-# Shell profile
-for PROFILE_FILE in "$HOME/.zshrc" "$HOME/.bashrc"; do
-  [ -f "$PROFILE_FILE" ] || continue
-  grep -vE '^export (ADUP_API_KEY|ADUP_GATEWAY_BASE|ADUP_API_BASE)=' "$PROFILE_FILE" \
-    > "$PROFILE_FILE.tmp" && mv "$PROFILE_FILE.tmp" "$PROFILE_FILE"
-done
+claude mcp remove adup-automation
+claude mcp add --transport http --scope user adup-automation https://gateway.adup.io/mcp \
+  --header "Authorization: Bearer emp_…"
 ```
-
-**`ADUP_GATEWAY_BASE` no longer does anything** and is removed rather than rewritten. The connector
-URL is a literal now; a leftover value used to look like an environment override while having no
-effect, which is a confusing thing to leave behind.
-
-If the user still needs the direct-HTTP skills (client reports, proposals, creative uploads), have
-them re-run `/adup:setup` afterwards to write the new key back into the environment. That step is
-optional — the connector itself does not need it.
-
-## 3. Verify
-
-Run `/adup:connect`. A successful reset reports the role and accessible shops. If it still returns
-`invalid_token`, the key is wrong or belongs to another environment — do not clear anything a second
-time, get a fresh key from the portal instead.
 
 ## Switching environments
 
-The connector is pinned to `https://gateway.adup.io/mcp`, so a staging or dev key cannot be made to
-work by setting a variable. Testing another environment needs a variant build of the plugin or a
-hand-added custom connector pointing at that gateway.
+The connector is pinned to `https://gateway.adup.io/mcp` and signs in there. Testing against
+staging or dev is a hand-added connector against that gateway (`claude mcp add --transport http
+adup-staging https://gateway-staging.adup.io/mcp`), which runs its own OAuth sign-in against that
+environment's portal.
