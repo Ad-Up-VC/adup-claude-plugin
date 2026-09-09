@@ -65,13 +65,11 @@ After listing shops, briefly remind the user what their role allows:
 - **analyst**: can see assigned shops, propose changes — every change goes to `pending_review` and requires approval by a team_lead/manager/owner.
 - **read_only**: can see assigned shops and read data, but cannot propose any change.
 
-## Your agency's managed agents
+## Reports drafted by Tara
 
-The agency's skills run inside Tara's **managed agents** (Reporting Agent, Spreadsheet Agent,
-Assistant) — server-side, per brand, on their own schedule. Nothing is synced down any more. Run
-`/adup:agents` to see each brand's agents, open or download their drafts, start a run, or publish a
-house-style skill up to them. `/adup:sync-skills` is deprecated and only cleans up what it used to
-write.
+Tara's agents draft reports per brand on their own schedule; they are configured, run and reviewed
+in Tara under **Agents** (`https://tara.adup.io/agents`), not from here. `/adup:client-report`
+offers Tara's draft first when one covers the period.
 
 ## Switching shops — refresh the tool list
 

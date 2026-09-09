@@ -127,8 +127,10 @@ brand.
 `list_shops` · `set_active_shop` · `create_report` · `get_kpi` · `get_report_template` ·
 `get_report_branding`
 
-plus the managed-agent tools (see §6): `list_agents` · `get_agent_runs` · `get_agent_output` ·
-`run_agent` · `list_agent_skills` · `publish_agent_skill` · `get_agent_skill_package`
+The gateway also lists a few agent tools. Three reads — `list_agents` · `get_agent_runs` ·
+`get_agent_output` — are used internally by `/adup:setup` and `/adup:client-report` (see §6);
+the others (`run_agent`, the `*_agent_skill*` tools) are not used by the plugin — agents are
+operated in Tara.
 
 **Everything else carries a platform prefix.** The built-in prefixes are:
 
@@ -269,29 +271,20 @@ next. If a user needs to know their auto-approval rules, point them at the porta
 no external scripts, fonts, stylesheets or images. Oversized HTML is rejected with a size hint —
 switch base64 raster images to inline SVG rather than trimming content.
 
-`get_report_template` also returns `agency_instructions` — the house instructions the managed
-Reporting Agent runs with. Apply them *after* the report contract's rules, never instead of them.
+`get_report_template` also returns `agency_instructions` — the house instructions Tara's own
+reports run with. Apply them *after* the report contract's rules, never instead of them.
 
-### Managed agents
+### Tara drafts reports too
 
-The agency's managed agents (Reporting Agent, Spreadsheet Agent, Assistant) run server-side in
-Tara and file into the same review queue. Operate them with these tools — every one takes an
-explicit `shop_slug`:
+Tara's agents draft reports server-side and file into the same review queue. They are configured,
+run and reviewed in Tara under **Agents**; the plugin has no agent commands. It only avoids
+duplicates: `/adup:setup` reads `list_agents` per brand and does not create (or removes) the local
+weekly/monthly reporting tasks for brands Tara already reports on, and `/adup:client-report` reads
+`get_agent_runs` for a `ready` run covering the period and offers it (`get_agent_output` with
+`kind: html` → the Tara review link) before building one — one draft per period.
 
-| Tool | What it does |
-|---|---|
-| `list_agents` | The brand's agents: `is_active`, schedule, `needs_attention`, next/last run — plus `available_types` |
-| `get_agent_runs` | Recent runs: status (`scheduled`/`running`/`generating`/`ready`/`failed`/`budget_reached`), period, summary, artifacts, cost |
-| `get_agent_output` | `kind: html` → the Tara portal path (review happens there); `pptx`/`xlsx` → a 15-minute signed download URL |
-| `run_agent` | Starts a run **now**. It spends the agent's per-run budget — confirm with the user first, never put it in a schedule or a loop. 409 = a run is in flight; 422 = the agent is off |
-| `list_agent_skills` · `publish_agent_skill` · `get_agent_skill_package` | The agency's custom agent skills: list, publish a zipped `SKILL.md` folder (≤ 2 MB, `SKILL.md` at the zip root), download one |
-
-Activating agents, editing schedules/budgets/instructions, attaching skills and approving reports
-are done in Tara at `/agents/<agent_type>` — there is no tool for them, by design. `report_ready`
-and `report_failed`, if you ever see them, are worker-side tools: do not call them.
-
-Before a local report is built, check `get_agent_runs` for a `ready` run covering the period and
-offer it — one draft per period.
+`run_agent` spends a per-run budget and is never called by the plugin. `report_ready`,
+`report_failed` and `get_run_context`, if you ever see them, are worker-side tools: do not call them.
 
 ---
 
@@ -345,9 +338,8 @@ so the model behaves the way the skills do:
    active shop is shared per API key and races across parallel or scheduled runs.
 4. Tool names are `platform__tool` (double underscore). Unprefixed tools are only:
    list_shops, set_active_shop, create_report, get_kpi, get_report_template,
-   get_report_branding, and the managed-agent tools list_agents, get_agent_runs,
-   get_agent_output, run_agent, list_agent_skills, publish_agent_skill,
-   get_agent_skill_package. The Google Ads prefix is `google_ads__`, never `google__`.
+   get_report_branding (plus the gateway's agent tools, which you do not need).
+   The Google Ads prefix is `google_ads__`, never `google__`.
 5. Read each tool's schema before calling it — date arguments differ per platform
    (Facebook `time_range` {since,until}; Google Ads/TikTok flat start_date/end_date;
    GA4 nested {year,month,day}; Intercom camelCase DD/MM/YYYY, 7-day max).
@@ -355,8 +347,8 @@ so the model behaves the way the skills do:
 7. Every `propose_*` write requires a `reasoning` string and only files a proposal for human
    approval. It never changes anything live, and approved ads land PAUSED.
 8. Never invent tool names or platform prefixes. If a tool is not in the list, say so.
-9. `run_agent` spends a managed agent's per-run budget: confirm with the user before every
-   call, never schedule it, never loop it over shops. Reports are reviewed in Tara, not here.
+9. Never call `run_agent` — it spends a per-run budget, and Tara's agents are operated in Tara.
+   Reports are reviewed in Tara, not here.
 ```
 
 ---
@@ -364,9 +356,8 @@ so the model behaves the way the skills do:
 ## 10. Quick reference
 
 **Virtual tools (unprefixed):** `list_shops`, `set_active_shop`, `create_report`, `get_kpi`,
-`get_report_template`, `get_report_branding`, `list_agents`, `get_agent_runs`,
-`get_agent_output`, `run_agent`, `list_agent_skills`, `publish_agent_skill`,
-`get_agent_skill_package`
+`get_report_template`, `get_report_branding` — plus `list_agents`, `get_agent_runs`,
+`get_agent_output`, read internally by setup and client-report
 
 **Built-in platform prefixes:** `facebook`, `google_ads`, `ga4`, `gsc`, `linkedin`, `hubspot`,
 `intercom`, `tiktok`, `snapchat`, `shopify`, `openai_ads`, `bol_com`, `reddit_ads`, `x_ads`,

@@ -112,8 +112,6 @@ Google Ads prefix is `google_ads__`, not `google__`.
 | Connect | `/adup:connect` | Verify connection and see available shops |
 | Reset | `/adup:reset` | Change the employee API key, or clear a stale one |
 | Shop Select | `/adup:shop-select` | Switch active client (agencies) |
-| Agents | `/adup:agents` | Operate the agency's managed agents: status, open/download a draft, run now, list/pull/publish agent skills |
-| Sync Skills | `/adup:sync-skills` | **Deprecated** — cleans up what it used to write and points to `/adup:agents`; removed in 1.9.0 |
 
 ### Analysis
 | Skill | Command | Description |
@@ -151,34 +149,21 @@ Google Ads prefix is `google_ads__`, not `google__`.
 | Skill | Command | Description |
 |-------|---------|-------------|
 | Monday Briefing | `/adup:monday-briefing` | Per-client executive summary with wins & concerns |
-| Client Report | `/adup:client-report` | Client-ready report with talking points — offers the managed agent's draft first when one covers the period |
+| Client Report | `/adup:client-report` | Client-ready report with talking points — offers Tara's existing draft first when one covers the period |
 | Anomaly Alerts | `/adup:anomaly-alerts` | Detect spend spikes, delivery stops, CTR drops |
 
-## Managed agents
+## Tara's agents
 
-Your agency's **managed agents** — the Reporting Agent (HTML + PPTX), the Spreadsheet Agent
-(XLSX) and the Assistant — run server-side in Tara: brand-scoped, budgeted, on their own
-schedule, filing drafts into the agency's review queue. The plugin does not run them and does not
-copy their instructions down; it **operates** them:
+Agents are configured, run and reviewed in Tara under **Agents** — the plugin has no agent
+commands. The two only meet at the review queue: when Tara already drafts a brand's report,
+`/adup:setup` does not create the local weekly/monthly reporting tasks for that brand, and
+`/adup:client-report` offers Tara's draft before building one.
 
-```
-/adup:agents                       status per brand: state, schedule, last run, next run
-/adup:agents open reporting        open the latest draft in Tara, or download its PPTX/XLSX
-/adup:agents run reporting         start a run now — confirms first, it spends the run budget
-/adup:agents skills                the agency's published agent skills
-/adup:agents pull <skill>          download one to edit locally
-/adup:agents publish <folder>      push a local SKILL.md folder up as an agent skill (shows it, confirms)
-/adup:agents cleanup               remove the personal skills the old /adup:sync-skills wrote
-```
+### Upgrading from 1.7
 
-It is tool-backed (the connector's `list_agents`, `get_agent_runs`, `get_agent_output`,
-`run_agent`, `list_agent_skills`, `publish_agent_skill`, `get_agent_skill_package`), so it works in
-Cowork and cloud sessions too — the old skill sync never did. Switching agents on or off, changing
-schedules, budgets, instructions and attached skills, and approving reports all stay in Tara.
-
-To avoid two drafts per period, `/adup:setup` removes the local weekly/monthly client-report
-tasks for brands whose managed agent is active, and `/adup:client-report` offers the agent's draft
-before building one locally.
+`/adup:sync-skills` is gone (the portal skill library it synced no longer exists). Run
+`/adup:setup` once: it lists the personal `adup-*` skills the old command wrote under
+`~/.claude/skills/`, asks, and removes them.
 
 ## Usage examples
 
