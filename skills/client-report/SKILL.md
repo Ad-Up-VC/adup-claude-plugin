@@ -9,8 +9,9 @@ description: Generate polished, client-ready performance reports with executive 
 
 There are two delivery paths. Choose ONE up front:
 
-- **HTML → platform review queue (DEFAULT).** Build a self-contained HTML report per
-  `templates/REPORT-CONTRACT.md` and submit it with the `create_report` MCP tool. A team
+- **HTML → platform review queue (DEFAULT).** Build a self-contained HTML report per the
+  report contract that `get_report_template` serves (Pre-flight 4) and submit it with the
+  `create_report` MCP tool. A team
   member reviews and approves it in the AdUp dashboard; only then does the client see it on
   the agency's whitelabel portal. Use this path unless the user explicitly asks otherwise.
 - **PPTX + markdown to disk (LEGACY).** Only when the user explicitly asks for a PPTX,
@@ -41,17 +42,32 @@ There are two delivery paths. Choose ONE up front:
    the report over it. Never call `run_agent` from this skill — Tara's reporting is switched on,
    scheduled and run in Tara under **Agents**, never from the plugin.
 3. Identify all connected platforms for this client via `list_shops`
-4. Read the plugin's `templates/REPORT-DESIGN-GUIDE.md` for tone, structure, and quality rules
-5. HTML path: read the plugin's `templates/REPORT-CONTRACT.md` — the authoritative HTML spec (structure, theming variables, print rules, size limits). Reference sample content quality via `templates/weekly-report-sample.md` / `templates/monthly-report-sample.md`
+4. **Rules first: `get_report_template(shop_slug="<slug>")`, before anything is written.** Its
+   `report_contract` (the binding HTML spec: structure, theming variables, print rules, size
+   limits) and `report_design_guide` (tone, structure, quality) are the platform's reporting
+   rules, the same ones Tara's own report drafts follow. They come back whether or not the
+   brand has a prior report (`has_template` true or false), and they are the rules this report
+   follows. Read both before writing any narrative or HTML.
+5. **Fallback copies, only when the rules were not served.** If `get_report_template` is not in
+   the tool list, errors, or its response lacks `report_contract` / `report_design_guide` (an
+   older gateway), read the plugin's copy of the missing one instead:
+   `templates/REPORT-CONTRACT.md` / `templates/REPORT-DESIGN-GUIDE.md`. They mirror the served
+   text and may lag it, so a served field always wins. From here on, **"the contract"** and
+   **"the design guide"** mean the served field, or its fallback copy when it was not served
+   (where the contract mentions the design guide "you were handed with this contract", that is
+   the same pair). Reference sample content quality via `templates/weekly-report-sample.md` /
+   `templates/monthly-report-sample.md`
 6. **Platform continuity + branding + KPI tools — call in this order (HTML path).** The
    connector exposes three tools that make a report reuse last month's structure, wear the
    agency's branding, and quote the brand's real targets. Call them for the HTML path BEFORE
-   building (details + exact return fields in "Step 5A"): `get_report_template` FIRST (reuse
-   the last approved skeleton + carry forward the agency's edits), then `get_report_branding`
-   (the `--r-*` colors/fonts + logos), then `get_kpi` (targets to weave into the narrative).
+   building (details + exact return fields in "Step 5A"): `get_report_template` FIRST (the
+   call from step 4: the rules, plus the last approved skeleton and the agency's edits to carry
+   forward), then `get_report_branding` (the `--r-*` colors/fonts + logos), then `get_kpi`
+   (targets to weave into the narrative).
    **All three optional-degrade:** if a tool is not in the tool list, or returns an error or
-   an empty/`has_*: false` result, fall back silently (build fresh from the contract, contract
-   default theming, no KPI commentary) — NEVER hard-fail the report over a missing tool.
+   an empty/`has_*: false` result, fall back silently (fallback rules from step 5 and a fresh
+   build, contract default theming, no KPI commentary) — NEVER hard-fail the report over a
+   missing tool.
 7. Call connector tools directly by name (`<platform>__<tool>`, `list_shops`). A tool search that finds
    no matching deferred tools only means the tools are already loaded or named differently, never that
    the connector dropped. Report the connector as disconnected only after a real connector call such as
@@ -238,12 +254,18 @@ contract → (5) submit. Steps 1–3 each call one platform tool and each degrad
 the tool is missing/errors/empty. Shop must already be resolved (Pre-flight step 1: `list_shops` →
 `set_active_shop` → explicit `shop_slug` per call — the calls below all pass `shop_slug`).
 
-### 5A.1 — `get_report_template` FIRST (structure continuity)
+### 5A.1 — `get_report_template` FIRST (rules + structure continuity)
 
-Call `get_report_template(shop_slug="<slug>")`.
+Call `get_report_template(shop_slug="<slug>")` (the call from Pre-flight 4; no need to repeat
+it).
 
-- **`has_template: false`** (or tool absent / error) → build FRESH from `REPORT-CONTRACT.md`
-  using the section order in Steps 3–4. Skip the rest of this substep.
+- **`report_contract` + `report_design_guide`** → the rules for everything below: the contract
+  for the HTML mechanics, the design guide for tone and content. Both arrive on the
+  `has_template: true` and `false` paths alike. Missing field, tool absent or error → the
+  plugin's fallback copy (Pre-flight 5).
+- **`has_template: false`** (or tool absent / error) → build FRESH from the contract
+  using the section order in Steps 3–4. Skip the structure and edit-journal parts of this
+  substep (`agency_instructions` below still applies when present).
 - **`has_template: true`** → REUSE the returned skeleton. The result carries `structure`,
   `edit_journal`, and `branding`:
   - **Match `structure.slides`** exactly: it is an array of `{index, data_slide, headings,
@@ -265,7 +287,7 @@ Call `get_report_template(shop_slug="<slug>")`.
   a report built here reads like one Tara drafted: **append them
   AFTER the contract's rules** — tone, emphasis, sections to add or stress, wording preferences,
   client-specific framing. They are house style, not a licence: they **never override** the
-  safety, whitelabel, output and theming rules of `REPORT-CONTRACT.md`, this skill's Rules, or
+  safety, whitelabel, output and theming rules of the contract, this skill's Rules, or
   the mandatory attribution note. An instruction that conflicts with those is ignored, and say so
   in one line when reporting back. Absent/empty → build without, silently (optional-degrade like
   the rest of this step).
@@ -279,7 +301,7 @@ their values — do NOT invent colors.
   `css_vars: {"--r-bg", "--r-panel", "--r-accent", "--r-accent-2", "--r-text",
   "--r-text-muted", "--r-font-heading", "--r-font-body"}`. Copy each key/value straight into
   the `<style>` block's `:root`. Every color and font in the document (including inside inline
-  SVG) MUST reference only these `--r-*` vars, per `REPORT-CONTRACT.md`.
+  SVG) MUST reference only these `--r-*` vars, per the contract.
 - **Follow `design_md`** for layout, tone-of-voice, and component rules — it is the agency's
   design system (aesthetic direction, spacing, chart style). Let it govern how slides look and
   read, within the contract's mechanics.
@@ -317,10 +339,12 @@ needs platform-specific targets).
 
 ### 5A.4 — Build the HTML
 
-Build a single self-contained HTML document **strictly per `templates/REPORT-CONTRACT.md`**
-(do not improvise on structure, theming variables, interactivity attributes, print rules, or
-size — the contract is authoritative and the server strips anything non-compliant). Content,
-tone, and section order follow `templates/REPORT-DESIGN-GUIDE.md`, Steps 3–4 above, the reused
+Build a single self-contained HTML document **strictly per the contract** (`report_contract`
+from 5A.1; `templates/REPORT-CONTRACT.md` only when it was not served). Do not improvise on
+structure, theming variables, interactivity attributes, print rules, or size — the contract is
+authoritative and the server strips anything non-compliant. Content, tone, and section order
+follow the design guide (`report_design_guide`; `templates/REPORT-DESIGN-GUIDE.md` only when it
+was not served), Steps 3–4 above, the reused
 template skeleton (5A.1), the branding `design_md` (5A.2), and the KPI narrative (5A.3):
 cover slide (verdict on it), executive summary, performance overview table, monthly extras,
 what worked / what needs improvement, recommendations, attribution note, closing slide.
@@ -433,12 +457,13 @@ Before finalizing, verify:
 
 HTML path (5A) additionally:
 - [ ] `get_agent_runs` checked for a `ready` Tara draft covering the period; if one existed, the user was offered it (default: open in Tara) before anything was built
-- [ ] `get_report_template` called first; if `has_template:true`, slide count/order/headings match `structure.slides` and every `edit_journal[].text_changes` correction is carried forward (never reverted)
+- [ ] `get_report_template` called first, before any HTML was written; its `report_contract` and `report_design_guide` were the rules followed (the plugin's `templates/` copies only for a field that was not served)
+- [ ] If `has_template:true`, slide count/order/headings match `structure.slides` and every `edit_journal[].text_changes` correction is carried forward (never reverted)
 - [ ] `agency_instructions` (when present) applied as appended house style, after — never over — the contract, safety, whitelabel and attribution rules
 - [ ] `get_report_branding` `css_vars` injected verbatim into `:root`; no invented colors; `design_md` followed; logos from `assets.logo_light_url`/`logo_dark_url`
 - [ ] `get_kpi` targets woven in respecting each target's `direction`; commentary omitted gracefully when `has_targets:false`
-- [ ] Missing/erroring tool degraded silently (fresh build / contract defaults / no KPI commentary) — report never hard-failed
-- [ ] `templates/REPORT-CONTRACT.md` pre-submit checklist passes (no script, `--r-*` vars, slide structure, print rules, size)
+- [ ] Missing/erroring tool degraded silently (fallback rules + fresh build / contract defaults / no KPI commentary) — report never hard-failed
+- [ ] The contract's pre-submit checklist passes — the served `report_contract`, or `templates/REPORT-CONTRACT.md` when it was not served (no script, `--r-*` vars, slide structure, print rules, size)
 - [ ] `create_report` called; report ID + pending_review status + verbatim sanitizer warnings relayed to the user
 - [ ] If content was stripped: regenerated compliant HTML, resubmitted, duplicate noted to the user
 
@@ -469,14 +494,16 @@ Legacy PPTX path (5B) additionally:
 
 9. **HTML is the default delivery.** Submit via `create_report` and relay report ID, pending_review status, and sanitizer warnings verbatim. PPTX/markdown-to-disk only when the user explicitly asks for a PPTX/PowerPoint/deck file (Step 5B) — then save to `~/Desktop/ADUP-Reports/`, generate the PPTX, and open Finder.
 
-10. **The contract is authoritative for HTML.** Never emit `<script>`, external resources, or your own interactivity JS; theme exclusively through the `--r-*` variables. If the sanitizer reports stripped content, regenerate compliant HTML and resubmit as a new report (there is no version-update tool yet), telling the user about the duplicate.
+10. **The contract is authoritative for HTML.** That is the `report_contract` served by `get_report_template`; the plugin's `templates/REPORT-CONTRACT.md` is only a fallback for when it is not served. Never emit `<script>`, external resources, or your own interactivity JS; theme exclusively through the `--r-*` variables. If the sanitizer reports stripped content, regenerate compliant HTML and resubmit as a new report (there is no version-update tool yet), telling the user about the duplicate.
 
 11. **Continuity, branding, KPIs (HTML path).** Call `get_report_template` → `get_report_branding`
-    → `get_kpi` before building (Step 5A). Reuse the template's `structure.slides` skeleton and
+    → `get_kpi` before building (Step 5A). Follow the template's `report_contract` and
+    `report_design_guide`; reuse its `structure.slides` skeleton and
     carry every `edit_journal[].text_changes` correction forward; inject branding `css_vars`
     verbatim and follow `design_md`; weave `get_kpi` `ai_summary`/`targets` in, respecting each
     target's `direction`. All three optional-degrade — a missing or erroring tool falls back
-    (fresh build, contract defaults, no KPI commentary) and NEVER hard-fails the report.
+    (the plugin's `templates/` rules and a fresh build, contract defaults, no KPI commentary)
+    and NEVER hard-fails the report.
 
 12. **Monthly = strategic, weekly = tactical.** Monthly reports go deeper: funnel, utilization, channel mix, creative health, strategic recommendations. Weekly stays focused on this week's performance and next week's actions.
 
