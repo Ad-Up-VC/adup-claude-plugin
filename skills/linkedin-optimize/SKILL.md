@@ -10,6 +10,7 @@ description: Propose LinkedIn Ads optimizations through the action middleware. C
 - Default lookback: 14 days. State the assumption if user doesn't specify
 - Pull campaign-level performance data from the `linkedin__*` MCP tools — LinkedIn **is** available via MCP
 - LinkedIn is typically B2B — benchmark CPL between $50-$150 depending on industry
+- Call connector tools directly by name (`linkedin__<tool>`, `list_shops`). A tool search that finds no matching deferred tools only means the tools are already loaded or named differently, never that the connector dropped. Report the connector as disconnected only after a real connector call such as `list_shops` fails, and quote that error
 
 ---
 

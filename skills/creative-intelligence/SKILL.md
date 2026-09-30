@@ -10,6 +10,7 @@ description: Analyse creative performance across formats, content types, and cop
 - All platform tools are namespaced `platform__tool` on the aggregated `adup` connector
 - Default lookback: 30 days. State the assumption if user doesn't specify
 - Pull ad-level data with creative details from all connected platforms
+- Call connector tools directly by name (`<platform>__<tool>`, `list_shops`). A tool search that finds no matching deferred tools only means the tools are already loaded or named differently, never that the connector dropped. Report the connector as disconnected only after a real connector call such as `list_shops` fails, and quote that error
 
 ---
 

@@ -52,6 +52,10 @@ There are two delivery paths. Choose ONE up front:
    **All three optional-degrade:** if a tool is not in the tool list, or returns an error or
    an empty/`has_*: false` result, fall back silently (build fresh from the contract, contract
    default theming, no KPI commentary) — NEVER hard-fail the report over a missing tool.
+7. Call connector tools directly by name (`<platform>__<tool>`, `list_shops`). A tool search that finds
+   no matching deferred tools only means the tools are already loaded or named differently, never that
+   the connector dropped. Report the connector as disconnected only after a real connector call such as
+   `list_shops` fails, and quote that error.
 
 ---
 
