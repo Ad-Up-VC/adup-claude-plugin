@@ -187,6 +187,12 @@ Other things that bite:
   Get it from `tiktok__get_tiktok_account_info`, where the field is called **`owner_bc_id`**.
 - **Google Ads costs are in micros.** Divide by 1,000,000. A "€4,300,000 CPC" is €4.30.
 - **`google_ads__execute_google_ads_gaql_query` takes raw GAQL**, not a natural-language prompt.
+- **`linkedin__get_linkedin_campaigns` is compact by default — keep it that way.** It takes
+  `limit` (default 100), `status` (`ACTIVE`, `PAUSED`, `ARCHIVED`, `COMPLETED`) and `verbose`
+  (default `false`). `verbose=true` returns the full LinkedIn objects (targeting criteria,
+  serving statuses); on an account with 50+ campaigns that is more than a Claude Code session
+  accepts from one tool call. Pass `verbose=true` only together with `status` or a `limit` of
+  about 20.
 - **TikTok report tools are ID-scoped and have no "all" mode.**
   `tiktok__get_tiktok_campaign_reports` requires `campaign_ids`;
   `tiktok__get_tiktok_ad_reports` requires `ad_ids`. Fetch the IDs first

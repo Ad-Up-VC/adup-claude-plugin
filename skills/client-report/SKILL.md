@@ -87,6 +87,7 @@ google_ads__get_google_ads_campaign_performance(start_date="...", end_date="..."
 
 ### LinkedIn Ads (if connected)
 - Use the `linkedin__*` campaign tools with `shop_slug="<slug>"` (e.g. `linkedin__get_linkedin_campaigns(shop_slug="<slug>")`) — LinkedIn **is** available via MCP
+- Keep `linkedin__get_linkedin_campaigns` on its compact default. Pass `verbose=true` only with `status` set or `limit` of about 20: the full objects for 50+ campaigns exceed the session's per-tool output limit
 - Campaign analytics for both periods
 - Focus on CPL, lead quality, engagement rate
 - Benchmark CPL against $50-$150 B2B range

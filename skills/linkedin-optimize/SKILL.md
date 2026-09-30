@@ -21,6 +21,8 @@ Pull performance data using the namespaced LinkedIn Ads read tools (`linkedin__*
 - Creative-level: engagement (likes, comments, shares), CTR per creative
 - Compare last 7 days vs previous 7 days for trends
 
+`linkedin__get_linkedin_campaigns` returns a compact projection by default (identity, status, type, objective, budget, cost, run schedule), which is all this analysis needs. Keep that default. When you do need the full objects (targeting criteria, serving statuses), pass `verbose=true` only together with `status` (e.g. `status="ACTIVE"`) or `limit` of about 20: on an account with 50+ campaigns, the full objects exceed the session's per-tool output limit and the call returns nothing usable.
+
 ### Key metrics per campaign:
 | Metric | What it shows |
 |--------|---------------|
