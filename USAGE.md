@@ -270,7 +270,7 @@ next. If a user needs to know their auto-approval rules, point them at the porta
 | Tool | What it does |
 |---|---|
 | `get_report_branding` | Agency/brand design system — fetch **before** building a report |
-| `get_report_template` | Last approved report's structure + accumulated human edits |
+| `get_report_template` | The reporting rules (`report_contract`, `report_design_guide`) + the last approved report's structure and accumulated human edits — call it **before** writing any HTML |
 | `get_kpi` | The brand's KPI targets (year/quarter/month, budget caps, per-platform metric targets) |
 | `create_report` | Submits a report **for agency review** — it is not published to the client |
 
@@ -278,7 +278,14 @@ next. If a user needs to know their auto-approval rules, point them at the porta
 no external scripts, fonts, stylesheets or images. Oversized HTML is rejected with a size hint —
 switch base64 raster images to inline SVG rather than trimming content.
 
-`get_report_template` also returns `agency_instructions` — the house instructions Tara's own
+`get_report_template` returns the rules every report follows: `report_contract` (the binding HTML
+spec — structure, theming variables, print rules, size limits) and `report_design_guide` (tone,
+structure, quality). They come back whether or not the brand has an approved report yet, and they
+are the same text Tara's own report drafts follow. The plugin's `templates/REPORT-CONTRACT.md`
+and `templates/REPORT-DESIGN-GUIDE.md` are a fallback copy for a gateway that does not return
+those fields yet; the served fields win.
+
+It also returns `agency_instructions` — the house instructions Tara's own
 reports run with. Apply them *after* the report contract's rules, never instead of them.
 
 ### Tara drafts reports too
