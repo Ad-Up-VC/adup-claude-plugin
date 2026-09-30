@@ -294,9 +294,13 @@ weekly/monthly reporting tasks for brands Tara already reports on, and `/adup:cl
 | Response | Meaning | Fix |
 |---|---|---|
 | `401 invalid_token` | Key rejected — often a key from a different environment | Check the key's environment before assuming it is revoked |
-| `-32001 Shop "x" not in your accessible shops` | Correct behaviour, protecting client scope | Use a slug from `list_shops` |
+| `-32001 Shop "x" is not in your accessible shops` | Correct behaviour, protecting client scope | Use a slug from `list_shops` |
 | `-32602 No shop selected` | No `shop_slug`, no active shop, and more than one accessible | Pass `shop_slug` or call `set_active_shop` |
-| `-32602 Tool 'x' is not available for this brand` | Tool exists, this brand has no such connection | Check `connected_platforms` from `list_shops` |
+| `-32602 The active brand on this API key is "x", and <platform> is not available for it` | A call without `shop_slug` landed on the active brand, which lacks that platform (or, with `tool '…' is not available for it`, that tool). The message lists your brands that have the platform. The active brand is shared by every session on the key, so another session may have changed it | Pass `shop_slug` on the call, e.g. one of the brands the message lists |
+| `-32602 Active shop is being changed concurrently on this API key` | Another session on the same key is switching the active brand, so a call without `shop_slug` could read another brand's data. Nothing was called | Pass `shop_slug` explicitly on this call |
+| `-32602 Tool 'x' is not available for this brand (y)` | With an explicit `shop_slug` (or your only brand): the tool is not in your tool access for that brand, because the platform is not connected there or the tool is switched off | Check `connected_platforms` from `list_shops`; if connected, ask an owner to adjust Tool Access |
+| `-32602 <platform> is not part of your platform access` | The brand has the platform, but your member access excludes it | Ask your agency owner to grant it |
+| `-32603 Could not check tool access for brand "x" right now (temporary)` | The tool-access lookup failed; this is not a verdict on the tool | Retry the call |
 | `-32004 blocked by your organisation's MCP Control Center` | Policy, not a failure | Ask an owner to adjust Tool Access |
 | `-32005` | Per-employee rate limit reached | Slow down; limits are configurable |
 | `-32601 Platform x not connected for shop y` | The brand has not connected that platform | Connect it in the portal |
