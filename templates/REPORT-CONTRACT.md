@@ -6,8 +6,9 @@ sanitizes server-side on ingest: non-compliant markup is stripped (not rejected)
 sanitizer report is returned to you and shown to reviewers. Build compliant HTML the first
 time — stripped content means a degraded report in the review queue.
 
-Tone, narrative structure, and content quality are governed by `REPORT-DESIGN-GUIDE.md`.
-This file governs only the HTML/CSS mechanics.
+Tone, narrative structure, and content quality are governed by the ADUP Report Design Guide,
+which you were handed together with this contract (the `report_design_guide` field of the same
+`get_report_template` response). This contract governs only the HTML/CSS mechanics.
 
 ---
 
@@ -79,8 +80,8 @@ This file governs only the HTML/CSS mechanics.
 - The platform re-skins reports by overriding these eight variables — a report that hardcodes
   colors elsewhere breaks agency whitelabeling.
 - Values come from agency branding via the `get_report_branding` tool: inject its `css_vars`
-  object verbatim into `:root` (see the client-report skill, Step 5A.2). If that tool is
-  unavailable or errors, use tasteful defaults consistent with `REPORT-DESIGN-GUIDE.md`.
+  object verbatim into `:root`. If that tool is unavailable or errors, use tasteful defaults
+  consistent with the ADUP Report Design Guide you were handed with this contract.
 
 ## 4. Print
 
