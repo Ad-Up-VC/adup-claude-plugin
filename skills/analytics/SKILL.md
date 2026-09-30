@@ -12,6 +12,7 @@ description: Analyse Google Analytics 4 data — sessions, revenue, e-commerce, 
 - Default to last 30 days if no date range specified — state the assumption
 - GA4 values are in actual currency (no micros conversion needed)
 - Pass the user's actual question as `user_prompt` for context
+- Call connector tools directly by name (`ga4__<tool>`, `list_shops`). A tool search that finds no matching deferred tools only means the tools are already loaded or named differently, never that the connector dropped. Report the connector as disconnected only after a real connector call such as `list_shops` fails, and quote that error
 
 ## Metric & Dimension Selection (CRITICAL)
 

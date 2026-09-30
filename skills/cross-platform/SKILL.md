@@ -18,6 +18,7 @@ description: Build a unified cross-platform marketing dashboard showing total sp
 3. Pass `shop_slug="<slug>"` on EVERY data call below. If you build this dashboard for more than one brand, pass each brand's own slug per call inside the loop — `set_active_shop` sets ONE ambient shop per API key and concurrent runs race
 4. Use a consistent date range for ALL calls
 5. Collect all data before formatting output
+6. Call connector tools directly by name (`<platform>__<tool>`, `list_shops`). A tool search that finds no matching deferred tools only means the tools are already loaded or named differently, never that the connector dropped. Report the connector as disconnected only after a real connector call such as `list_shops` fails, and quote that error
 
 ## Call sequence
 

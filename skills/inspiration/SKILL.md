@@ -42,6 +42,11 @@ All platform tools are namespaced `platform__tool` (double underscore) on the ag
 `adup` connector; only the 6 virtual tools (`list_shops`, `set_active_shop`, `get_kpi`,
 `create_report`, `get_report_template`, `get_report_branding`) are unprefixed.
 
+- Call connector tools directly by name (`<platform>__<tool>`, `list_shops`). A tool search that
+  finds no matching deferred tools only means the tools are already loaded or named differently,
+  never that the connector dropped. Report the connector as disconnected only after a real
+  connector call such as `list_shops` fails, and quote that error.
+
 Record the resolved **brand display name** and **slug** — the briefing is titled with the
 display name and every data call carries the slug.
 
