@@ -220,6 +220,31 @@ Claude Code discovers `~/.claude/skills/<name>/SKILL.md` exactly one level deep 
 name is the command, which is why the old sync wrote the flat `adup-<slug>` prefix — that is the
 only pattern Step 3b matches.
 
+## Report contract and design guide — served, with a fallback copy
+The canonical report contract (HTML mechanics) and design guide (tone, structure, quality) live
+in central-api. `get_report_template` serves them as `report_contract` and
+`report_design_guide`, on both the `has_template: true` and `false` paths, so the plugin's
+reports and Tara's own drafts follow one text. `/adup:client-report` calls it before any HTML is
+written and follows those two fields; `/adup:inspiration` reads `report_design_guide` for its
+language rules.
+
+`templates/REPORT-CONTRACT.md` and `templates/REPORT-DESIGN-GUIDE.md` are a **fallback copy**,
+read only when the tool is missing, errors, or returns without those fields (a gateway that
+predates them). They must stay byte-identical to central-api's files. Never edit them here: change
+central-api's copy, then sync.
+
+**Before every release**, check and re-sync from a central-api checkout (a working tree, or a ref
+read with `git show`, so nothing has to be checked out):
+
+```
+bash scripts/sync-report-contract.sh --check --ref origin/development <central-api-dir>   # exit 1 = drifted
+bash scripts/sync-report-contract.sh --ref origin/development <central-api-dir>           # copy, then pack.sh
+```
+
+The directory can also come from `CENTRAL_API_DIR`. Use the central-api branch the release pairs
+with (`origin/main` for a `main` release). This is deliberately not part of `pack.sh --verify`:
+CI has no central-api checkout.
+
 ## Approval rules are not readable with an employee key
 No tool and no gateway route reachable with an `emp_` key returns an organisation's approval
 settings, auto-approval rules, or action audit log — `/actions/{shop}/settings`, `/rules` and

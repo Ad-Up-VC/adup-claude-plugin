@@ -141,12 +141,18 @@ never pad with vague filler.
 ## Step 5 — Write the briefing
 
 Output markdown titled **`Next steps for {brand}`**. This is agency-facing, but the
-**client-friendly language rules in `templates/REPORT-DESIGN-GUIDE.md` still apply** — write
+**client-friendly language rules of the ADUP Report Design Guide still apply** — write
 so the briefing could be read aloud to the client without translation. Translate jargon
 (CPA → cost per customer, ROAS → return, CTR → click-through rate, impressions → times shown,
 learning phase → optimization period), frame problems as opportunities, and be specific with
 numbers instead of vague ("raise Google Shopping budget 15% to capture ~90 more customers",
-not "consider increasing budget"). Read `templates/REPORT-DESIGN-GUIDE.md` before writing.
+not "consider increasing budget").
+
+Read the design guide before writing: call `get_report_template(shop_slug="<slug>")` and use
+its `report_design_guide` field, the platform's current copy. Only when the tool is not in the
+tool list, errors, or returns without that field (an older gateway), read the plugin's
+fallback copy `templates/REPORT-DESIGN-GUIDE.md` instead. Ignore the rest of that response
+(the report structure and edit journal are for `/adup:client-report`).
 
 ### Structure
 
@@ -212,7 +218,8 @@ absent), say so ("no target set — this is off the 30-day trend").
    a failure. The briefing works with whatever data resolved — even KPIs alone, or performance
    alone.
 
-5. **Client-friendly language.** Follow `templates/REPORT-DESIGN-GUIDE.md`: translate jargon,
+5. **Client-friendly language.** Follow the design guide (`report_design_guide` from
+   `get_report_template`, else the fallback `templates/REPORT-DESIGN-GUIDE.md`): translate jargon,
    frame problems as opportunities, be specific and quantified. No untranslated CPA/ROAS/CTR.
 
 6. **Google Ads micros.** ALWAYS divide `_micros` values by 1,000,000 before using them.
