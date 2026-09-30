@@ -21,10 +21,16 @@ production portal. Another environment is a hand-added connector against that ga
 ## Steps
 
 1. Call `list_shops` on the `adup` connector. The gateway resolves your identity via Central API
-   `/api/v1/me`, returning:
-   - `role` (`owner` / `team_lead` / `manager` / `analyst` / `read_only`)
-   - `accessible_shops` — only the shops you've been assigned to (or all shops if you're an owner)
-   - Per-shop connected platforms
+   `/api/v1/me` and returns one JSON object:
+   - `account_type` — the kind of account you're signed in with
+   - `role` (`owner` / `team_lead` / `manager` / `analyst` / `read_only`) — may be `null` when the
+     account carries no role; say so rather than guessing one
+   - `shops` — only the shops you've been assigned to (or all shops if you're an owner). Each entry
+     has `slug`, `name`, `permission_level` and `connected_platforms` (an array of platform names).
+     `connected_platforms` can be missing when the gateway couldn't check connectivity; then say the
+     platforms are unknown for now, not that none are connected
+   - `hint` — present only when you have no shops, or none of your shops has an integration
+     connected. Relay it to the user as the next step
 2. Present the results clearly with role context.
 
 ## Output format
@@ -119,6 +125,7 @@ gateway serves no tools. This is a billing answer — point at the portal, never
 **Server unreachable (connection refused or timeout).**
 "Cannot reach the ADUP gateway at `https://gateway.adup.io/mcp`. Check whether the service is up."
 
-**No shops returned (empty `accessible_shops`).**
+**No shops returned (empty `shops`).**
 "Your ADUP account is connected, but no shops have been assigned to you yet. Ask your agency owner
-to assign you to a client in the portal Team page."
+to assign you to a client in the portal Team page." When the reply carries a `hint`, relay it as
+well — it says what to do next.
