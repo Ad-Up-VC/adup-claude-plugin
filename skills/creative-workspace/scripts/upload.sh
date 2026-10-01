@@ -1,110 +1,71 @@
 #!/usr/bin/env bash
-# upload.sh — upload a creative file to the ADUP creative asset service.
+# upload.sh — PUT a local creative file to a presigned upload URL.
 #
-# Usage: upload.sh <api_base> <shop_slug> <file> [tags-csv]
-#   e.g. upload.sh "https://centralapi.adup.io" acme-nl assets/summer-sale/hero_1x1.jpg "summer-sale,hero"
+# Credential-free (plugin v2.0.0): the URL comes from the `create_creative_upload`
+# connector tool and carries its own short-lived signature, so this script
+# needs no ADUP credential at all. The full flow is:
 #
-# Auth: requires ADUP_API_KEY in the environment (personal employee key, emp_...).
+#   1. bash inspect.sh <file>              → bytes, mime, checksum (sha256)
+#   2. find_creative_asset(shop_slug, checksum_sha256)
+#        found → reuse the asset, stop here
+#   3. create_creative_upload(shop_slug, filename, mime_type, size_bytes, checksum_sha256)
+#        deduplicated → reuse the returned asset, stop here
+#        otherwise    → upload.url (+ upload.headers), valid ~15 minutes
+#   4. bash upload.sh <file> "<upload.url>" [content_type]      ← THIS SCRIPT
+#   5. finalize_creative_upload(shop_slug, checksum_sha256, filename, mime_type, tags)
+#        the server recomputes the sha256 and stores the asset
 #
-# Behaviour:
-#   1. Computes sha256 of the file.
-#   2. GET  {api_base}/api/v1/shops/{slug}/creative-assets?checksum={sha256}
-#      — if the asset already exists, prints its JSON (with "deduplicated": true)
-#        and exits 0 WITHOUT uploading again.
-#   3. POST {api_base}/api/v1/shops/{slug}/creative-assets (multipart: file, tags[])
-#      and prints the response JSON.
+# Usage: upload.sh <file> "<upload_url>" [content_type]
+#   e.g. upload.sh assets/summer-sale/hero_1x1.jpg "https://….digitaloceanspaces.com/…?X-Amz-Signature=…" image/jpeg
 #
-# Exit: 0 on success/dedup-skip; non-zero with a message on stderr on 4xx/5xx.
-# NOTE: this only stores the file on ADUP infrastructure (DO Spaces). Nothing
-# reaches any ad platform until a proposal is approved in the portal.
+# Exit: 0 on 2xx; 1 with a message on stderr otherwise (the presigned URL may
+# have expired — call create_creative_upload again). Prints the HTTP status.
+# NOTE: this only stores the file on ADUP infrastructure. Nothing reaches any
+# ad platform until a proposal is approved in the portal.
 set -euo pipefail
 
-if [ $# -lt 3 ]; then
-  echo "usage: upload.sh <api_base> <shop_slug> <file> [tags-csv]" >&2
+if [ $# -lt 2 ]; then
+  echo "usage: upload.sh <file> \"<upload_url>\" [content_type]" >&2
   exit 2
 fi
 
-API_BASE="${1%/}"
-SHOP_SLUG="$2"
-FILE="$3"
-TAGS_CSV="${4:-}"
-
-: "${ADUP_API_KEY:?upload.sh: ADUP_API_KEY must be set (your personal ADUP employee key)}"
+FILE="$1"
+URL="$2"
+MIME="${3:-}"
 
 if [ ! -f "$FILE" ]; then
   echo "upload.sh: file not found: $FILE" >&2
   exit 1
 fi
 
-CHECKSUM=$(shasum -a 256 "$FILE" | awk '{print $1}')
-BASE_URL="$API_BASE/api/v1/shops/$SHOP_SLUG/creative-assets"
+case "$URL" in
+  https://*) ;;
+  *) echo "upload.sh: the upload URL must be https (got: ${URL:0:40}…)" >&2; exit 2 ;;
+esac
 
-# ── 1. Idempotency check ─────────────────────────────────────────────────────
-existing=$(curl -s -w '\n%{http_code}' \
-  -H "Authorization: Bearer $ADUP_API_KEY" \
-  -H "Accept: application/json" \
-  "$BASE_URL?checksum=$CHECKSUM" || true)
-existing_code=$(echo "$existing" | tail -n1)
-existing_body=$(echo "$existing" | sed '$d')
-
-if [ "$existing_code" = "200" ] && [ -n "$existing_body" ]; then
-  hit=$(printf '%s' "$existing_body" | python3 -c '
-import json, sys
-try:
-    d = json.load(sys.stdin)
-except Exception:
-    sys.exit(0)
-data = d.get("data")
-if isinstance(data, list) and data:
-    asset = data[0]
-elif isinstance(data, dict) and data.get("id"):
-    asset = data
-else:
-    sys.exit(0)
-print(json.dumps({"data": asset, "deduplicated": True, "skipped_upload": True}))
-' || true)
-  if [ -n "$hit" ]; then
-    printf '%s\n' "$hit"
-    exit 0
-  fi
+if [ -z "$MIME" ]; then
+  MIME=$(file --brief --mime-type "$FILE" 2>/dev/null || echo "application/octet-stream")
 fi
 
-# ── 2. Multipart upload ──────────────────────────────────────────────────────
-tag_args=()
-if [ -n "$TAGS_CSV" ]; then
-  OLD_IFS="$IFS"; IFS=','
-  for t in $TAGS_CSV; do
-    t=$(echo "$t" | sed 's/^ *//;s/ *$//')
-    [ -n "$t" ] && tag_args+=(-F "tags[]=$t")
-  done
-  IFS="$OLD_IFS"
-fi
-
-response=$(curl -s -w '\n%{http_code}' \
-  -H "Authorization: Bearer $ADUP_API_KEY" \
-  -H "Accept: application/json" \
-  -F "file=@$FILE" \
-  ${tag_args[@]+"${tag_args[@]}"} \
-  "$BASE_URL")
-
-http_code=$(echo "$response" | tail -n1)
-body=$(echo "$response" | sed '$d')
+http_code=$(curl -sS -o /dev/null -w '%{http_code}' \
+  -X PUT -T "$FILE" \
+  -H "Content-Type: $MIME" \
+  "$URL") || {
+  echo "upload.sh: PUT failed (network error)" >&2
+  exit 1
+}
 
 case "$http_code" in
-  200|201)
-    printf '%s\n' "$body"
+  2??)
+    echo "$http_code"
     exit 0
     ;;
-  422)
-    echo "upload.sh: rejected by server (HTTP 422 — bad mime type or file too large; 100MB cap): $body" >&2
-    exit 1
-    ;;
-  401|403)
-    echo "upload.sh: authentication/permission error (HTTP $http_code). Check ADUP_API_KEY and shop access: $body" >&2
+  403)
+    echo "upload.sh: PUT rejected (HTTP 403) — the presigned URL expired or the Content-Type differs from the one declared to create_creative_upload; request a new URL." >&2
     exit 1
     ;;
   *)
-    echo "upload.sh: upload failed (HTTP $http_code): $body" >&2
+    echo "upload.sh: PUT failed (HTTP $http_code)" >&2
     exit 1
     ;;
 esac

@@ -9,34 +9,32 @@ Pulls the current status of every proposal a workspace has launched and writes i
 
 Usage: `/adup:creative-status [path] [--csv] [--sheet]`
 
+Every ADUP call in this skill is a **connector tool** on the `adup` connector (OAuth sign-in) — `list_proposals`, `get_proposal`, `list_replication_requests`, `update_replication_request`. There is no `curl`, no key and no API base to configure.
+
 Reminder to surface when reporting: approved ads are created on the platform in **PAUSED** state — approval never means spending has started.
 
 ---
 
 ## Step 1 — Load the ledger
 
-1. Find the workspace root (walk up to `.adup/workspace.json`); read `workspace.json` and `state.json`. The `shop_slug` in `workspace.json` is the shop for this whole run — it goes into the `<shop_slug>` path segment of every request below, and into `shop_slug="<slug>"` on any MCP tool call. Never depend on the gateway's ambient active shop here: it is set per API key and a concurrent run can clobber it.
+1. Find the workspace root (walk up to `.adup/workspace.json`); read `workspace.json` and `state.json`. The `shop_slug` in `workspace.json` is the shop for this whole run — it goes into `shop_slug="<slug>"` on every tool call below. Never depend on the gateway's ambient active shop here: it is one slot per sign-in and a concurrent run can clobber it.
 2. Collect every `targets` entry across `state.json` `ads`: `(ad_path, platform, lang, proposal_id, last_known_status)`. Nothing recorded → say "nothing launched yet — run /adup:creative-launch" and stop.
 
 ## Step 2 — Query proposal statuses
 
-Query central-api's **employee** proposals surface with the employee key (same Bearer as the MCP connector) — the same `ADUP_API_BASE` used for replication-requests below. List per shop, paginated:
+List the shop's proposals with the connector tool, paginated:
 
-```bash
-curl -s -H "Authorization: Bearer $ADUP_API_KEY" -H "Accept: application/json" \
-  "${ADUP_API_BASE:-https://centralapi.adup.io}/api/v2/employee/tara/proposals?shop_slug=<shop_slug>&per_page=100&page=1"
+```
+list_proposals(shop_slug="<shop_slug>", limit=100, page=1)
 ```
 
-Page through until all pages are seen (the route also accepts `status`, `platform`, `category` and `batch_id` filters — `batch_id=<id>` pulls one whole launch in a single page). Match returned proposals to the ledger by proposal id. For any ledger id missing from the listing, fetch it directly:
+Page through until `current_page` reaches `last_page` (the tool returns central-api's paginator: the rows are at `data[]`, alongside `current_page` / `last_page` / `total`; `status` and `platform` filters exist too). Match returned proposals to the ledger by proposal id. For any ledger id missing from the listing, fetch it directly:
 
-```bash
-curl -s -H "Authorization: Bearer $ADUP_API_KEY" -H "Accept: application/json" \
-  "${ADUP_API_BASE:-https://centralapi.adup.io}/api/v2/employee/tara/proposals/<proposal_id>"
+```
+get_proposal(proposal_id="<proposal_id>")
 ```
 
-**Response shapes differ between the two — do not assume.** The list returns a Laravel paginator, so the rows are at `data.data[]`; the single-proposal GET returns `data.proposal`. A denial note is on `review_notes`.
-
-> Employee API keys (`emp_…`) authenticate against `/api/v2/employee/tara/…` only. The gateway also proxies these as `https://gateway.adup.io/actions/<shop_slug>/proposals…`, but that proxy targeted central-api's **seller-JWT dashboard** routes until tara-gateway PR #90, so on any gateway older than that it answers `401 Unauthenticated.` Calling central-api directly works regardless of which gateway version is deployed, so prefer it here.
+**Response shapes differ between the two — do not assume.** The list rows are at `data[]`; the single-proposal tool returns `{proposal: {...}}`. A denial note is on `review_notes`.
 
 Map platform statuses to workspace lifecycle statuses:
 
@@ -68,9 +66,8 @@ An ad.md gets the "worst" status of its targets (any denial → `changes_request
 
 When a reviewer approves a proposal in the portal, they can tick extra platforms. When the backend could NOT auto-create the replica (missing/insufficient embedded `platform_targets`, or the platform needs new copy), it files a **replication request** for Claude to fulfil. Check for them every status run:
 
-```bash
-curl -s -H "Authorization: Bearer $ADUP_API_KEY" -H "Accept: application/json" \
-  "${ADUP_API_BASE:-https://centralapi.adup.io}/api/v2/employee/tara/actions/replication-requests?shop_slug=<shop_slug>&status=pending"
+```
+list_replication_requests(shop_slug="<shop_slug>", status="pending")
 ```
 
 Each row carries `{id, platform, source_proposal (summary incl. entity_name + creative preview), notes, status}`. For each **pending** request:
@@ -81,13 +78,11 @@ Each row carries `{id, platform, source_proposal (summary incl. entity_name + cr
 4. **Launch**: with the user's go-ahead, run the normal `/adup:creative-launch` flow for that ad scoped to the requested platform (validate → upload → propose; same batch/count-confirmation rules). The proposal calls are namespaced `platform__tool` and each carries the workspace's `shop_slug="<slug>"` explicitly — a replication write must never land on another client.
 5. **Close the request**:
 
-   ```bash
-   curl -s -X PATCH -H "Authorization: Bearer $ADUP_API_KEY" -H "Content-Type: application/json" -H "Accept: application/json" \
-     -d '{"status": "fulfilled", "fulfilled_proposal_id": "<new proposal id>"}' \
-     "${ADUP_API_BASE:-https://centralapi.adup.io}/api/v2/employee/tara/actions/replication-requests/<id>"
+   ```
+   update_replication_request(id="<id>", status="fulfilled", fulfilled_proposal_id="<new proposal id>")
    ```
 
-   If the user declines the replication, PATCH `{"status": "dismissed"}` instead (tell the user you're dismissing it so the reviewer sees it was seen). Leave the request untouched if the user wants to decide later.
+   If the user declines the replication, call `update_replication_request(id="<id>", status="dismissed")` instead (tell the user you're dismissing it so the reviewer sees it was seen). Leave the request untouched if the user wants to decide later.
 
 The new proposal goes through the normal approval queue like any launch — replication never bypasses the middleware, and the resulting ad still lands PAUSED.
 
@@ -129,5 +124,6 @@ Same table as `--csv`, but pushed to a spreadsheet: if a Google Sheets MCP (or G
 
 1. **One-way sync for statuses**: platform state → files. This skill never approves or denies proposals, and the only proposals it ever creates are replication-request fulfilments (Step 4) — explicitly user-confirmed and routed through the normal `/adup:creative-launch` flow and approval queue.
 2. **Never edit copy silently** — status sync touches only the `status:` frontmatter field and the `## Review feedback` section; replication scaffolding may add `platforms:` entries and user-approved copy variant sections, nothing else.
-3. **Preserve unknown state**: if the gateway is unreachable, report the error and leave all files untouched.
+3. **Preserve unknown state**: if the gateway is unreachable or a tool answers with an error, report it and leave all files untouched.
 4. **Restate the PAUSED invariant** whenever anything reaches `live`.
+5. **Tools, never curl.** If any instruction elsewhere still mentions `ADUP_API_KEY` or an API base, it is stale — the connector tools above are the only path.

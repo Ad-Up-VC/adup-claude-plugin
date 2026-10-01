@@ -12,6 +12,7 @@ Pull a quick overview of all connected advertising platforms for the active shop
 1. Call `list_shops` to see brands + `connected_platforms`. If the shop is an agency account and no client has been specified, ask which client.
 2. Call `set_active_shop(shop_slug="<slug>")` — **required for tool discovery**: an agency key only sees the 6 virtual tools until a shop is active.
 3. Pass `shop_slug="<slug>"` on every data call below — the ambient active shop is per-API-key and races across concurrent runs.
+4. Call connector tools directly by name (`<platform>__<tool>`, `list_shops`). A tool search that finds no matching deferred tools only means the tools are already loaded or named differently, never that the connector dropped. Report the connector as disconnected only after a real connector call such as `list_shops` fails, and quote that error.
 
 If no date range given, default to last 30 days and state this.
 

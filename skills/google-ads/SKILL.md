@@ -12,6 +12,7 @@ description: Analyse Google Ads performance including Search, Shopping, Performa
 - Default to last 30 days if no date range specified — state the assumption
 - **Always call `google_ads__get_google_ads_account_currency(shop_slug="<slug>")` first** — display the correct currency symbol in all outputs
 - Google Ads returns ALL monetary values in micros — see conversion rule below
+- Call connector tools directly by name (`google_ads__<tool>`, `list_shops`). A tool search that finds no matching deferred tools only means the tools are already loaded or named differently, never that the connector dropped. Report the connector as disconnected only after a real connector call such as `list_shops` fails, and quote that error
 
 ---
 

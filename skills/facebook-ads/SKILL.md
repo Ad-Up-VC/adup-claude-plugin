@@ -12,6 +12,7 @@ description: Analyse Facebook and Instagram ad performance using Meta-native ana
 - Default to last 30 days if no date range specified — state the assumption
 - Facebook monetary values are in account currency (not micros — no conversion needed)
 - Cross-reference your recommendations with performance data trends — frame suggestions as testable hypotheses
+- Call connector tools directly by name (`facebook__<tool>`, `list_shops`). A tool search that finds no matching deferred tools only means the tools are already loaded or named differently, never that the connector dropped. Report the connector as disconnected only after a real connector call such as `list_shops` fails, and quote that error
 
 ---
 

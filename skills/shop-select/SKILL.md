@@ -32,11 +32,11 @@ so reload / reconnect the connector after `set_active_shop`.
 
 ## Concurrency: pass shop_slug per call
 
-`set_active_shop` sets a single ambient shop **per API key**. It is fine for one
-interactive session, but it is NOT safe when several runs share the same
-`ADUP_API_KEY` at once (e.g. multiple scheduled automations) — one run's
-`set_active_shop` overwrites another's, so a data call can silently hit the wrong
-client. Every platform tool accepts an optional `shop_slug` argument that targets
+`set_active_shop` sets a single ambient shop **per sign-in** (one slot per signed-in
+device for an OAuth sign-in, one per key for an automation key). It is fine for one
+interactive session, but it is NOT safe when several runs share the same sign-in at
+once (e.g. multiple scheduled automations) — one run's `set_active_shop` overwrites
+another's, so a data call can silently hit the wrong client. Every platform tool accepts an optional `shop_slug` argument that targets
 that client for THAT call only. The gateway resolves the shop per call as:
 explicit `shop_slug` argument → otherwise the ambient active shop (or the sole shop
 on a single-shop key).

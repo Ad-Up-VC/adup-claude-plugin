@@ -12,6 +12,7 @@ description: Monitor ad accounts for anomalies every 3 hours. Detects spend spik
 - All platform tools are namespaced `platform__tool` on the aggregated `adup` connector
 - Pull today's data with hourly/daily granularity
 - Compare against 7-day rolling averages
+- Call connector tools directly by name (`<platform>__<tool>`, `list_shops`). A tool search that finds no matching deferred tools only means the tools are already loaded or named differently, never that the connector dropped. Report the connector as disconnected only after a real connector call such as `list_shops` fails, and quote that error
 
 ---
 

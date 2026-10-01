@@ -11,14 +11,14 @@ Turns `ad.md` files in a creative workspace into ad-creation proposals: **VALIDA
 
 Usage: `/adup:creative-launch [path]` — path may be a workspace root, a campaign folder, an ad set folder, or a single ad folder. No path = current directory's workspace, all campaigns.
 
-Environment: `ADUP_API_KEY` (personal employee key), API base `${ADUP_API_BASE:-https://centralapi.adup.io}`.
+Auth: the `adup` connector's OAuth sign-in — every ADUP call in this skill is a connector tool. The only bash steps are local (`inspect.sh`, sha256) plus one credential-free `curl -T` PUT to a presigned upload URL. There is no key and no API base to configure.
 
 ---
 
 ## Step 1 — Resolve context
 
 1. Find the workspace root: walk up from the given path until a directory containing `.adup/workspace.json` is found. Missing → tell the user to run `/adup:creative-workspace init` first and stop.
-2. Read `.adup/workspace.json` (shop_slug, defaults) and `.adup/state.json`. Call `set_active_shop(shop_slug="<slug>")` — **required for tool discovery** (until a shop is active, an agency key sees only the six virtual tools, no `facebook__*` / `tiktok__*` at all). Then keep that `shop_slug` and pass it **explicitly on every platform tool call in this skill**, reads and writes alike. The active shop is ambient *per API key*: a concurrent launch or scheduled task sharing the key can clobber it between calls, and a write that lands on the wrong client is the worst failure mode here.
+2. Read `.adup/workspace.json` (shop_slug, defaults) and `.adup/state.json`. Call `set_active_shop(shop_slug="<slug>")` — **required for tool discovery** (until a shop is active, an agency account sees only the gateway's own virtual tools, no `facebook__*` / `tiktok__*` at all). Then keep that `shop_slug` and pass it **explicitly on every platform tool call in this skill**, reads and writes alike. The active shop is ambient *per sign-in*: a concurrent launch or scheduled task sharing the sign-in can clobber it between calls, and a write that lands on the wrong client is the worst failure mode here.
 3. Collect every `ad.md` in scope. For each, resolve its full context:
    - `_campaign.md` and `_adset.md` frontmatter from the enclosing folders.
    - Effective **platforms**: ad frontmatter → campaign frontmatter → workspace default (first one that sets it wins).
@@ -63,22 +63,23 @@ Present ONE consolidated report table: `ad | platform | check | severity | detai
 
 ## Step 3 — UPLOAD (to ADUP infrastructure only — inert until approval)
 
-For each unique local file used by in-scope ads (**google never consumes assets** — its ads are text-only RSAs, so skip upload entirely for ads whose only target is google):
+For each unique local file used by in-scope ads (**google never consumes assets** — its ads are text-only RSAs, so skip upload entirely for ads whose only target is google). Uploads are **credential-free**: the connector hands out a short-lived presigned URL, the bytes go there with plain `curl`, and the server verifies them.
 
-1. Compute `shasum -a 256`. If the checksum already exists in `state.json` `assets`, reuse the recorded `asset_id` — no upload.
-2. Otherwise run:
-   ```bash
-   bash <plugin>/skills/creative-workspace/scripts/upload.sh "${ADUP_API_BASE:-https://centralapi.adup.io}" <shop_slug> "<file>" "<campaign-slug>,<concept>"
-   ```
-   The script itself GETs `?checksum=` first and skips re-upload on a hit (returns the existing asset with `"deduplicated": true`). 422 = bad mime or over the 100MB multipart cap — report it, don't retry.
-3. Record in `state.json` under `assets["<sha256>"]`: `asset_id`, `filename`, `kind`, `mime_type`, `width`, `height`, `duration_ms`, `aspect_ratio`, `uploaded_at`.
+1. `bash <plugin>/skills/creative-workspace/scripts/inspect.sh "<file>"` gives `bytes`, `mime` and `checksum` (sha256). If the checksum already exists in `state.json` `assets`, reuse the recorded `asset_id` — no upload.
+2. Otherwise `find_creative_asset(shop_slug="<slug>", checksum_sha256="<sha256>")` — `found: true` means the library already has it (another workspace, an earlier run): record the returned `asset` and skip the upload.
+3. Otherwise `create_creative_upload(shop_slug="<slug>", filename="<basename>", mime_type="<mime>", size_bytes=<bytes>, checksum_sha256="<sha256>")`:
+   - `deduplicated: true` → record the returned `asset`; done.
+   - otherwise it returns `upload.url` (+ `upload.headers`, valid ~15 minutes). PUT the file:
+     ```bash
+     bash <plugin>/skills/creative-workspace/scripts/upload.sh "<file>" "<upload.url>" "<mime>"
+     ```
+     then `finalize_creative_upload(shop_slug="<slug>", checksum_sha256="<sha256>", filename="<basename>", mime_type="<mime>", tags=["<campaign-slug>", "<concept>"])`. The server recomputes the sha256 — a mismatch, an unsupported type or a file over the library limit comes back as a tool error: report it, don't retry blindly. A 403 on the PUT means the URL expired — call `create_creative_upload` again.
+4. Record in `state.json` under `assets["<sha256>"]`: `asset_id`, `filename`, `kind`, `mime_type`, `width`, `height`, `duration_ms`, `aspect_ratio`, `uploaded_at`.
 
 **Drive/Dropbox/https links** in `creative:` never touch local disk — call instead:
 
-```bash
-curl -s -X POST -H "Authorization: Bearer $ADUP_API_KEY" -H "Content-Type: application/json" -H "Accept: application/json" \
-  -d '{"url": "<share-link>", "filename": "<concept>_<ratio>.<ext>", "tags": ["<campaign-slug>"]}' \
-  "${ADUP_API_BASE:-https://centralapi.adup.io}/api/v1/shops/<shop_slug>/creative-assets/from-url"
+```
+import_creative_asset_url(shop_slug="<slug>", url="<share-link>", filename="<concept>_<ratio>.<ext>", tags=["<campaign-slug>"])
 ```
 
 (Google Drive links work when shared "anyone with the link".) Record the returned asset the same way, keyed by its `checksum_sha256`.
@@ -182,5 +183,6 @@ Ads Manager / TikTok Ads Manager when you're ready to spend.
 4. **Idempotent** — unchanged ads and already-uploaded checksums are skipped; re-running a launch never duplicates uploads or proposals.
 5. **Stop-and-ask points**: ambiguous creative grouping (show the grouping table), image auto-fix, copy rewrite suggestions, TikTok identity pick, the proposal-count confirmation, and launching-only-the-valid-ones. Never assume.
 6. **Never auto-truncate copy.** Ever.
-7. **Every platform call carries an explicit `shop_slug`** — reads, uploads, and above all the up-to-50-ad `propose_bulk_launch` calls. `set_active_shop` sets ONE ambient shop per API key; a parallel launch or a scheduled task sharing the key can clobber it mid-run, and a write filed against the wrong client is the worst outcome this skill can produce. Never rely on the ambient shop for a write.
-8. **Tool names are namespaced `platform__tool`** (`facebook__`, `tiktok__`, `google_ads__`, `linkedin__`). Only `list_shops` and `set_active_shop` are unprefixed. `google__` is not a valid prefix.
+7. **Every platform call carries an explicit `shop_slug`** — reads, uploads, and above all the up-to-50-ad `propose_bulk_launch` calls. `set_active_shop` sets ONE ambient shop per sign-in; a parallel launch or a scheduled task sharing the sign-in can clobber it mid-run, and a write filed against the wrong client is the worst outcome this skill can produce. Never rely on the ambient shop for a write.
+8. **Tool names are namespaced `platform__tool`** (`facebook__`, `tiktok__`, `google_ads__`, `linkedin__`). Only the gateway's own virtual tools (`list_shops`, `set_active_shop`, `find_creative_asset`, `create_creative_upload`, `finalize_creative_upload`, `import_creative_asset_url`, …) are unprefixed. `google__` is not a valid prefix.
+9. **Tools, never curl with a key.** The plugin holds no credential; every ADUP call goes through the connector.

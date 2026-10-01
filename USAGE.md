@@ -15,7 +15,7 @@ it is skipped.
 |---|---|---|
 | What you add | The `adup` plugin from the marketplace | One MCP server URL + your API key |
 | Tools | All of them, aggregated | All of them, aggregated — identical surface |
-| Skills (`/adup:facebook-ads`, …) | ✅ 26 bundled | ❌ none — a plugin feature |
+| Skills (`/adup:facebook-ads`, …) | ✅ 29 bundled | ❌ none — a plugin feature |
 | Knows the rules below | ✅ the skills enforce them | ❌ **you** must state them — paste [§9](#9-drop-in-rules-for-a-bare-connector) |
 
 Both talk to the same gateway with the same key. The connector is not a lesser product — it is
@@ -57,13 +57,14 @@ Two connectors exist beyond it, and only if you need them:
 ### Environments
 
 Production needs no configuration, and the connector cannot be moved off it — its URL is a
-literal. `ADUP_API_BASE` redirects only the direct central-api calls (reports, proposals, creative
-assets), so setting it splits the plugin across two environments: MCP tools from production,
-everything else from wherever you pointed it. Useful for testing, not a supported setup. See
-`README.md`.
+literal, and it signs in (OAuth 2.0) against the production portal. There are no direct central-api
+calls left to redirect, so `ADUP_API_BASE` is gone. Another environment is a hand-added connector
+against that gateway (`claude mcp add --transport http adup-staging
+https://gateway-staging.adup.io/mcp`), which runs its own sign-in against that environment's
+portal. See `README.md`.
 
-**A key belongs to exactly one environment.** A key from another environment returns
-`invalid_token` while being perfectly valid — check the environment before blaming the key.
+**A sign-in belongs to exactly one environment.** A session signed in on one gateway is unknown to
+the others; `invalid_token` from the wrong connector is expected, not a broken account.
 
 ---
 
@@ -122,10 +123,15 @@ brand.
 
 ### Rule 4 — Tool names are `platform__tool` (double underscore)
 
-**Six virtual tools are unprefixed** — they are served by the gateway itself:
+**The virtual tools are unprefixed** — they are served by the gateway itself:
 
 `list_shops` · `set_active_shop` · `create_report` · `get_kpi` · `get_report_template` ·
 `get_report_branding`
+
+The gateway also lists a few agent tools. Three reads — `list_agents` · `get_agent_runs` ·
+`get_agent_output` — are used internally by `/adup:setup` and `/adup:client-report` (see §6);
+the others (`run_agent`, the `*_agent_skill*` tools) are not used by the plugin — agents are
+operated in Tara.
 
 **Everything else carries a platform prefix.** The built-in prefixes are:
 
@@ -181,6 +187,12 @@ Other things that bite:
   Get it from `tiktok__get_tiktok_account_info`, where the field is called **`owner_bc_id`**.
 - **Google Ads costs are in micros.** Divide by 1,000,000. A "€4,300,000 CPC" is €4.30.
 - **`google_ads__execute_google_ads_gaql_query` takes raw GAQL**, not a natural-language prompt.
+- **`linkedin__get_linkedin_campaigns` is compact by default — keep it that way.** It takes
+  `limit` (default 100), `status` (`ACTIVE`, `PAUSED`, `ARCHIVED`, `COMPLETED`) and `verbose`
+  (default `false`). `verbose=true` returns the full LinkedIn objects (targeting criteria,
+  serving statuses); on an account with 50+ campaigns that is more than a Claude Code session
+  accepts from one tool call. Pass `verbose=true` only together with `status` or a `limit` of
+  about 20.
 - **TikTok report tools are ID-scoped and have no "all" mode.**
   `tiktok__get_tiktok_campaign_reports` requires `campaign_ids`;
   `tiktok__get_tiktok_ad_reports` requires `ad_ids`. Fetch the IDs first
@@ -258,13 +270,35 @@ next. If a user needs to know their auto-approval rules, point them at the porta
 | Tool | What it does |
 |---|---|
 | `get_report_branding` | Agency/brand design system — fetch **before** building a report |
-| `get_report_template` | Last approved report's structure + accumulated human edits |
+| `get_report_template` | The reporting rules (`report_contract`, `report_design_guide`) + the last approved report's structure and accumulated human edits — call it **before** writing any HTML |
 | `get_kpi` | The brand's KPI targets (year/quarter/month, budget caps, per-platform metric targets) |
 | `create_report` | Submits a report **for agency review** — it is not published to the client |
 
 `create_report` takes a complete, self-contained HTML document: inline CSS, inline SVG charts,
 no external scripts, fonts, stylesheets or images. Oversized HTML is rejected with a size hint —
 switch base64 raster images to inline SVG rather than trimming content.
+
+`get_report_template` returns the rules every report follows: `report_contract` (the binding HTML
+spec — structure, theming variables, print rules, size limits) and `report_design_guide` (tone,
+structure, quality). They come back whether or not the brand has an approved report yet, and they
+are the same text Tara's own report drafts follow. The plugin's `templates/REPORT-CONTRACT.md`
+and `templates/REPORT-DESIGN-GUIDE.md` are a fallback copy for a gateway that does not return
+those fields yet; the served fields win.
+
+It also returns `agency_instructions` — the house instructions Tara's own
+reports run with. Apply them *after* the report contract's rules, never instead of them.
+
+### Tara drafts reports too
+
+Tara's agents draft reports server-side and file into the same review queue. They are configured,
+run and reviewed in Tara under **Agents**; the plugin has no agent commands. It only avoids
+duplicates: `/adup:setup` reads `list_agents` per brand and does not create (or removes) the local
+weekly/monthly reporting tasks for brands Tara already reports on, and `/adup:client-report` reads
+`get_agent_runs` for a `ready` run covering the period and offers it (`get_agent_output` with
+`kind: html` → the Tara review link) before building one — one draft per period.
+
+`run_agent` spends a per-run budget and is never called by the plugin. `report_ready`,
+`report_failed` and `get_run_context`, if you ever see them, are worker-side tools: do not call them.
 
 ---
 
@@ -273,9 +307,13 @@ switch base64 raster images to inline SVG rather than trimming content.
 | Response | Meaning | Fix |
 |---|---|---|
 | `401 invalid_token` | Key rejected — often a key from a different environment | Check the key's environment before assuming it is revoked |
-| `-32001 Shop "x" not in your accessible shops` | Correct behaviour, protecting client scope | Use a slug from `list_shops` |
+| `-32001 Shop "x" is not in your accessible shops` | Correct behaviour, protecting client scope | Use a slug from `list_shops` |
 | `-32602 No shop selected` | No `shop_slug`, no active shop, and more than one accessible | Pass `shop_slug` or call `set_active_shop` |
-| `-32602 Tool 'x' is not available for this brand` | Tool exists, this brand has no such connection | Check `connected_platforms` from `list_shops` |
+| `-32602 The active brand on this API key is "x", and <platform> is not available for it` | A call without `shop_slug` landed on the active brand, which lacks that platform (or, with `tool '…' is not available for it`, that tool). The message lists your brands that have the platform. The active brand is shared by every session on the key, so another session may have changed it | Pass `shop_slug` on the call, e.g. one of the brands the message lists |
+| `-32602 Active shop is being changed concurrently on this API key` | Another session on the same key is switching the active brand, so a call without `shop_slug` could read another brand's data. Nothing was called | Pass `shop_slug` explicitly on this call |
+| `-32602 Tool 'x' is not available for this brand (y)` | With an explicit `shop_slug` (or your only brand): the tool is not in your tool access for that brand, because the platform is not connected there or the tool is switched off | Check `connected_platforms` from `list_shops`; if connected, ask an owner to adjust Tool Access |
+| `-32602 <platform> is not part of your platform access` | The brand has the platform, but your member access excludes it | Ask your agency owner to grant it |
+| `-32603 Could not check tool access for brand "x" right now (temporary)` | The tool-access lookup failed; this is not a verdict on the tool | Retry the call |
 | `-32004 blocked by your organisation's MCP Control Center` | Policy, not a failure | Ask an owner to adjust Tool Access |
 | `-32005` | Per-employee rate limit reached | Slow down; limits are configurable |
 | `-32601 Platform x not connected for shop y` | The brand has not connected that platform | Connect it in the portal |
@@ -318,7 +356,8 @@ so the model behaves the way the skills do:
    active shop is shared per API key and races across parallel or scheduled runs.
 4. Tool names are `platform__tool` (double underscore). Unprefixed tools are only:
    list_shops, set_active_shop, create_report, get_kpi, get_report_template,
-   get_report_branding. The Google Ads prefix is `google_ads__`, never `google__`.
+   get_report_branding (plus the gateway's agent tools, which you do not need).
+   The Google Ads prefix is `google_ads__`, never `google__`.
 5. Read each tool's schema before calling it — date arguments differ per platform
    (Facebook `time_range` {since,until}; Google Ads/TikTok flat start_date/end_date;
    GA4 nested {year,month,day}; Intercom camelCase DD/MM/YYYY, 7-day max).
@@ -326,6 +365,8 @@ so the model behaves the way the skills do:
 7. Every `propose_*` write requires a `reasoning` string and only files a proposal for human
    approval. It never changes anything live, and approved ads land PAUSED.
 8. Never invent tool names or platform prefixes. If a tool is not in the list, say so.
+9. Never call `run_agent` — it spends a per-run budget, and Tara's agents are operated in Tara.
+   Reports are reviewed in Tara, not here.
 ```
 
 ---
@@ -333,7 +374,8 @@ so the model behaves the way the skills do:
 ## 10. Quick reference
 
 **Virtual tools (unprefixed):** `list_shops`, `set_active_shop`, `create_report`, `get_kpi`,
-`get_report_template`, `get_report_branding`
+`get_report_template`, `get_report_branding` — plus `list_agents`, `get_agent_runs`,
+`get_agent_output`, read internally by setup and client-report
 
 **Built-in platform prefixes:** `facebook`, `google_ads`, `ga4`, `gsc`, `linkedin`, `hubspot`,
 `intercom`, `tiktok`, `snapchat`, `shopify`, `openai_ads`, `bol_com`, `reddit_ads`, `x_ads`,

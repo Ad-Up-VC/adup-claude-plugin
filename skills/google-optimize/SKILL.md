@@ -10,6 +10,7 @@ description: Propose Google Ads optimizations through the action middleware. Cov
 - Default lookback: 14 days. State the assumption if user doesn't specify
 - Pull campaign and ad-level data from the `google_ads__*` MCP tools (the prefix is `google_ads__`, never `google__`)
 - All Google Ads monetary values are in **micros** — divide by 1,000,000 for display
+- Call connector tools directly by name (`google_ads__<tool>`, `list_shops`). A tool search that finds no matching deferred tools only means the tools are already loaded or named differently, never that the connector dropped. Report the connector as disconnected only after a real connector call such as `list_shops` fails, and quote that error
 
 ---
 

@@ -19,6 +19,7 @@ Once per morning, after yesterday's data has fully synced from each platform (ty
 4. Determine which platforms are connected per shop (check `connected_platforms` from `list_shops`)
 5. Set date variables: D-1 = yesterday, D-2 = day before, D-3 = three days ago (YYYY-MM-DD)
 6. Run each connected platform's fatigue check below, then combine into one output per shop
+7. Call connector tools directly by name (`<platform>__<tool>`, `list_shops`). A tool search that finds no matching deferred tools only means the tools are already loaded or named differently, never that the connector dropped. Report the connector as disconnected only after a real connector call such as `list_shops` fails, and quote that error
 
 ---
 
