@@ -8,6 +8,7 @@ description: Monitor budget pacing across Facebook Ads campaigns. Identifies ove
 ## Pre-flight
 - Resolve shop context in all three steps: (1) `list_shops` to see the brands and their connected platforms, (2) `set_active_shop(shop_slug="<slug>")` — **required for tool discovery**, an agency key sees only the six virtual tools until a shop is active, (3) pass `shop_slug="<slug>"` explicitly on every data/action call below
 - Default period: current month. State the assumption if user doesn't specify
+- Call connector tools directly by name (`facebook__<tool>`, `list_shops`). A tool search that finds no matching deferred tools only means the tools are already loaded or named differently, never that the connector dropped. Report the connector as disconnected only after a real connector call such as `list_shops` fails, and quote that error
 
 ---
 

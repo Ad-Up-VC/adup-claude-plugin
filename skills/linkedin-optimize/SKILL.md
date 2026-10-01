@@ -10,6 +10,7 @@ description: Propose LinkedIn Ads optimizations through the action middleware. C
 - Default lookback: 14 days. State the assumption if user doesn't specify
 - Pull campaign-level performance data from the `linkedin__*` MCP tools — LinkedIn **is** available via MCP
 - LinkedIn is typically B2B — benchmark CPL between $50-$150 depending on industry
+- Call connector tools directly by name (`linkedin__<tool>`, `list_shops`). A tool search that finds no matching deferred tools only means the tools are already loaded or named differently, never that the connector dropped. Report the connector as disconnected only after a real connector call such as `list_shops` fails, and quote that error
 
 ---
 
@@ -19,6 +20,8 @@ Pull performance data using the namespaced LinkedIn Ads read tools (`linkedin__*
 - Campaign-level: spend, impressions, clicks, CTR, conversions, CPL
 - Creative-level: engagement (likes, comments, shares), CTR per creative
 - Compare last 7 days vs previous 7 days for trends
+
+`linkedin__get_linkedin_campaigns` returns a compact projection by default (identity, status, type, objective, budget, cost, run schedule), which is all this analysis needs. Keep that default. When you do need the full objects (targeting criteria, serving statuses), pass `verbose=true` only together with `status` (e.g. `status="ACTIVE"`) or `limit` of about 20: on an account with 50+ campaigns, the full objects exceed the session's per-tool output limit and the call returns nothing usable.
 
 ### Key metrics per campaign:
 | Metric | What it shows |

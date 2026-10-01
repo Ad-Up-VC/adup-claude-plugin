@@ -38,6 +38,10 @@ blended account ROAS, and the reader has to be told why.
    and Shopify in the store's; if they differ, say so in the output rather than silently mixing
 5. `shopify__get_metric_definitions()` once — it states which revenue figure is authoritative and
    how refunds are signed. Quote the basis you used in the output
+6. Call connector tools directly by name (`<platform>__<tool>`, `list_shops`). A tool search that finds
+   no matching deferred tools only means the tools are already loaded or named differently, never that
+   the connector dropped. Report the connector as disconnected only after a real connector call such as
+   `list_shops` fails, and quote that error
 
 ## Step 1 — Revenue per market (Shopify)
 

@@ -10,6 +10,7 @@ description: Propose TikTok Ads optimizations through the action middleware. Cov
 - Default lookback: 14 days. State the assumption if user doesn't specify
 - Pull campaign and ad group data from the `tiktok__*` MCP tools — TikTok reporting **is** available via MCP
 - TikTok is video-first — hook rate and completion rates are critical metrics
+- Call connector tools directly by name (`tiktok__<tool>`, `list_shops`). A tool search that finds no matching deferred tools only means the tools are already loaded or named differently, never that the connector dropped. Report the connector as disconnected only after a real connector call such as `list_shops` fails, and quote that error
 
 ---
 
