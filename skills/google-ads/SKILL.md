@@ -68,7 +68,7 @@ google_ads__execute_google_ads_gaql_query(
 ```
 This takes a **raw GAQL query string, not a natural-language prompt**. Field names are snake_case (`campaign.name`, `metrics.cost_micros`). The date range lives inside the query (`segments.date`), not in separate arguments.
 
-Two date forms work. `DURING LAST_30_DAYS` (also `LAST_7_DAYS`, `LAST_14_DAYS`, `THIS_MONTH`) is the shorthand used in the examples below and needs no date math. Explicit bounds — `segments.date >= 'YYYY-MM-DD' AND segments.date <= 'YYYY-MM-DD'` — are the fallback if a shorthand range is ever rejected, and are required for any custom window; get those dates from the calendar MCP, never by calculating them yourself.
+Two date forms work. `DURING LAST_30_DAYS` (also `LAST_7_DAYS`, `LAST_14_DAYS`, `THIS_MONTH`) is the shorthand used in the examples below and needs no date math. Explicit bounds — `segments.date >= 'YYYY-MM-DD' AND segments.date <= 'YYYY-MM-DD'` — are the fallback if a shorthand range is ever rejected, and are required for any custom window; work those dates out from today's date and state them explicitly in the reply.
 
 Use this for: search term reports, keyword-level analysis, quality score queries, impression share, any metric not in structured tools. Costs come back in micros here too — divide by 1,000,000.
 

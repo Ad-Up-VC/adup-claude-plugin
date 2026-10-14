@@ -135,7 +135,7 @@ Build this object, then render it:
   and do not let it inflate a paid-ROAS claim.
 - Verify `reconciles` before rendering. If it is false, do not paper over it — show the gap as its
   own line and say the split is incomplete.
-- Use the `calculator` MCP for the arithmetic and the `calendar` MCP for date ranges.
+- Do the arithmetic directly and show the formula with its inputs; state every date range explicitly as YYYY-MM-DD to YYYY-MM-DD.
 
 ## Step 4 — Output
 
