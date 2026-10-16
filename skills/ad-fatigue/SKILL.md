@@ -55,17 +55,34 @@ Pull the raw rows as well when you need the per-day series behind the verdict, t
 or when the detector returns nothing usable:
 
 ```
-# 3 days of daily ad-level data — time_range is REQUIRED and is an object
-facebook__get_ad_insights(
+# 3 days of daily ad-set-level data. ads_insights_get passes `fields` to Meta as the metric
+# list, so each row holds only these columns (date_start/date_stop come with every row).
+# Dates are flat since/until strings here — NOT a time_range object — and time_increment
+# is the string "daily", not 1.
+facebook__ads_insights_get(
   shop_slug="<slug>",
-  time_range={"since": "D-3", "until": "D-1"},
-  time_increment=1,
-  # Returns per day: spend, impressions, inline_link_clicks, ctr, cpc, cpm, frequency, reach
+  since="D-3", until="D-1",
+  level="adset",
+  time_increment="daily",
+  fields=["campaign_id", "campaign_name", "adset_id", "adset_name", "account_currency",
+          "spend", "impressions", "reach", "frequency",
+          "inline_link_clicks", "cost_per_inline_link_click", "cpm"]
 )
 
 # Check for Learning phase ad sets — always do this first
 facebook__get_adsets(shop_slug="<slug>", campaign_id="<each_active_campaign_id>")
 ```
+
+Use `ads_insights_get` for these rows, not `facebook__get_ad_insights`: `get_ad_insights` has no
+`inline_link_clicks` (its `clicks`/`ctr`/`cpc` are Clicks (all)), and without a `fields` list
+every row also carries the raw `actions` arrays this check never reads.
+
+**Page through the answer.** It holds at most `limit` rows (default 500) and ~40,000
+characters. When its LAST element is a marker `{"_truncated": true, "_next_after": "<cursor>", ...}`
+instead of a row, drop the marker and call again with the **same arguments** plus
+`after="<cursor>"`; repeat until an answer ends without a marker. Stop after **10 pages** for one
+shop: if the last page is still truncated, say in the output that the Meta rows are incomplete
+and do not score the ad sets that are missing.
 
 Skip any ad set with status `Learning` or `Learning Limited` — flag it in the output with ⏳ and do not evaluate. Do not make performance judgments or recommendations for learning ad sets.
 
@@ -75,7 +92,8 @@ Ignore any entity with zero spend on D-1.
 
 **Step 2 — CTR calculation**
 Per day: CTR = `inline_link_clicks` ÷ `impressions`
-Always use `inline_link_clicks` (Link Clicks), never `clicks` (Clicks (all)).
+Always use `inline_link_clicks` (Link Clicks), never `clicks` (Clicks (all)). Likewise CPC is
+`cost_per_inline_link_click` (cost per Link Click).
 If impressions = 0 on any day, skip fatigue evaluation for that entity.
 
 **Step 3 — Day-over-day changes (D-2 → D-1)**

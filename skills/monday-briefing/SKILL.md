@@ -22,7 +22,20 @@ For each active shop, pull performance data from all connected platforms:
 
 ### Facebook Ads
 - `facebook__get_campaign_performance_metrics(time_range={...}, shop_slug="<slug>")` for campaign-level metrics
-- `facebook__get_ad_insights(time_range={...}, shop_slug="<slug>")` for detailed conversion data
+- `facebook__get_ad_insights` for detailed conversion data, one row per campaign per week. Always pass `fields` — without it every row also carries the raw `actions` / `cost_per_action_type` arrays (~4 KB a row) and the size-bounded answer holds only about ten campaigns:
+  ```
+  facebook__get_ad_insights(
+    shop_slug="<slug>",
+    time_range={"since": "<D-14>", "until": "<D-1>"},
+    time_increment=7,                                  # row 1 = previous 7 days, row 2 = last 7 days
+    metric_categories=["performance", "conversion"],
+    fields=["campaign_id", "campaign_name", "date_start", "date_stop", "account_currency",
+            "spend", "impressions", "clicks", "ctr", "cpm", "frequency",
+            "purchases", "leads", "registrations", "purchase_roas"]
+  )
+  ```
+  `purchases` / `leads` / `registrations` are derived from `actions`; a missing key means 0. CPA = `spend` ÷ conversions.
+- **Page through it:** when the answer's LAST element is a `{"_truncated": true, "_next_after": "<cursor>", ...}` marker instead of a row, drop the marker and call again with the same arguments plus `after="<cursor>"`, until an answer ends without one (at most 10 pages per shop). If it is still truncated, say the Facebook numbers are incomplete rather than presenting them as the account total
 - Compare last 7 days vs previous 7 days
 
 ### Google Ads
