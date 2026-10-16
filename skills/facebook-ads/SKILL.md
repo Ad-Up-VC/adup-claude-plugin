@@ -95,9 +95,24 @@ Returns: spend, impressions, link clicks, CTR, CPC, purchases, ROAS per campaign
 facebook__get_ad_insights(
   shop_slug="<slug>",
   time_range={"since": "YYYY-MM-DD", "until": "YYYY-MM-DD"},
-  campaign_id="<id_if_known>"
+  campaign_id="<id_if_known>",
+  metric_categories=["performance", "conversion"],
+  fields=["campaign_id", "campaign_name", "date_start", "date_stop", "account_currency",
+          "spend", "impressions", "reach", "frequency", "clicks", "ctr", "cpc", "cpm",
+          "purchases", "add_to_cart", "checkout_started", "leads", "registrations",
+          "purchase_roas"]
 )
 ```
+Pass `fields` on account-wide calls: without it every row also carries the raw `actions` /
+`cost_per_action_type` arrays (~4 KB a row), and the size-bounded answer holds only about ten
+campaigns. `purchases`, `add_to_cart`, `checkout_started`, `leads` and `registrations` are counts
+the tool derives from `actions` (a missing key means 0); `clicks`/`ctr`/`cpc` here are Clicks (all).
+Drop `fields` only for a single `campaign_id`/`ad_id` when you need the full action breakdown.
+
+**Paging.** The answer holds at most `limit` rows (default 500) and ~40,000 characters. When its
+LAST element is a `{"_truncated": true, "_next_after": "<cursor>", ...}` marker instead of a row,
+drop the marker and call again with the same arguments plus `after="<cursor>"`, until an answer
+ends without one (at most 10 pages). If it is still truncated, say the totals are partial.
 
 **Conversion funnel (ViewContent → Purchase):**
 ```

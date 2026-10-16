@@ -162,7 +162,7 @@ vendor APIs). The tool list is authoritative. §4 lists the shapes that catch pe
 | Platform | Date arguments |
 |---|---|
 | Facebook (insights) | `time_range` object: `{"since": "2026-08-01", "until": "2026-08-31"}` |
-| Facebook (`ads_insights_get`) | neither — `date_preset` + `time_increment` |
+| Facebook (`ads_insights_get`) | flat `since` / `until` strings, or a `date_preset`; `time_increment` is a string (`"daily"`, `"weekly"`) |
 | Facebook (analysis) | no dates — `lookback_days` on `analyze_creative_performance`, `detect_ad_fatigue` |
 | Facebook (`get_budget_pacing`) | `date_range` as a **string**: `"this_month"`, `"last_30d"`, `"this_week"` |
 | Google Ads · TikTok | flat `start_date` / `end_date` strings, `YYYY-MM-DD` |
@@ -173,6 +173,14 @@ vendor APIs). The tool list is authoritative. §4 lists the shapes that catch pe
 
 Other things that bite:
 
+- **Facebook insights answers are bounded — ask for less, then page.** `facebook__get_ad_insights`
+  and `facebook__ads_insights_get` return at most `limit` rows (default 500) and ~40,000
+  characters. Without `fields`, a `get_ad_insights` row also carries the raw `actions` /
+  `cost_per_action_type` arrays (~4 KB), so an answer holds only about ten rows. Pass `fields`
+  (on `get_ad_insights` it filters each row to exactly those keys, so include any breakdown
+  key such as `country`; `metric_categories=["performance"]` drops the conversion arrays from
+  the request). When the answer's last element is a `{"_truncated": true, "_next_after": …}`
+  marker, call again with the same arguments plus `after=<_next_after>`; no marker means done.
 - **GA4 reporting tools require four arguments, not two.** Every GA4 reporting tool requires
   `user_prompt` (the question in natural language), `time_range`, **`dimensions` and
   `metrics`** — a call with only a prompt and dates fails validation.

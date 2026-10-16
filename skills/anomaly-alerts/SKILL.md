@@ -22,7 +22,22 @@ For each active shop, pull recent data from all connected platforms:
 
 ### Facebook Ads
 - `facebook__get_campaign_performance_metrics(time_range={...}, shop_slug="<slug>")` for today and last 7 days
-- `facebook__get_ad_insights(time_range={...}, time_increment=1, shop_slug="<slug>")` for daily granularity
+- `facebook__get_ad_insights` for daily granularity — one row per campaign per day. Ask only for the columns this check reads; without `fields` every row also carries the raw `actions` / `cost_per_action_type` arrays (~4 KB a row), and the size-bounded answer then holds only about ten rows:
+
+  ```
+  facebook__get_ad_insights(
+    shop_slug="<slug>",
+    time_range={"since": "<today-7>", "until": "<today>"},
+    time_increment=1,
+    metric_categories=["performance", "conversion"],   # conversion = the actions behind purchases/leads
+    fields=["campaign_id", "campaign_name", "date_start", "account_currency",
+            "spend", "impressions", "clicks", "ctr", "frequency",
+            "purchases", "leads", "registrations", "purchase_roas"]
+  )
+  ```
+
+  `purchases` / `leads` / `registrations` are counts the tool derives from `actions`; a missing key means 0 that day. CPA = `spend` ÷ the campaign's conversion count.
+- **Page through the answer.** It holds at most `limit` rows (default 500) and ~40,000 characters. When its LAST element is a marker `{"_truncated": true, "_next_after": "<cursor>", ...}` instead of a row, drop the marker and call again with the **same arguments** plus `after="<cursor>"`; repeat until an answer ends without a marker. Stop after **10 pages** for one shop: if the last page is still truncated, report that shop's Facebook data as incomplete (say so in the output) and narrow the follow-up by `campaign_id` rather than judging anomalies on a partial set
 
 ### Google Ads
 - `google_ads__get_google_ads_campaign_performance(start_date="...", end_date="...", shop_slug="<slug>")` for today and last 7 days

@@ -74,10 +74,19 @@ platform can tell you directly.
 # Facebook / Instagram — same call contract as every other skill: get_ad_insights, with a
 # time_range OBJECT (not flat since/until). Omit campaign_id for account-wide spend, and let the
 # `country` breakdown split it per market. `breakdown` is a single dimension string, not a list.
+# `fields` FILTERS each returned row to exactly these keys, so "country" must be in it — without
+# it every row is bare spend with no market. One row per campaign x country; sum per country.
+# metric_categories=["performance"] keeps the conversion arrays (unused here) out of the request.
 facebook__get_ad_insights(shop_slug="<slug>",
                           time_range={"since": "YYYY-MM-DD", "until": "YYYY-MM-DD"},
-                          breakdown="country", fields=["spend", "impressions", "clicks"],
+                          breakdown="country", metric_categories=["performance"],
+                          fields=["country", "campaign_id", "account_currency",
+                                  "spend", "impressions", "clicks"],
                           limit=500)
+# Page through it: when the answer's LAST element is a {"_truncated": true, "_next_after": ...}
+# marker instead of a row, drop the marker and call again with the same arguments plus
+# after="<_next_after>", until an answer ends without one (at most 10 pages). A total built from
+# a still-truncated answer is NOT the account total — say so instead of reconciling to it.
 
 # TikTok
 tiktok__get_tiktok_geographic_reports(start_date="YYYY-MM-DD", end_date="YYYY-MM-DD", shop_slug="<slug>")
