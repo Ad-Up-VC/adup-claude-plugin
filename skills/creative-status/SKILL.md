@@ -11,6 +11,8 @@ Usage: `/adup:creative-status [path] [--csv] [--sheet]`
 
 Every ADUP call in this skill is a **connector tool** on the `adup` connector (OAuth sign-in) — `list_proposals`, `get_proposal`, `list_replication_requests`, `update_replication_request`. There is no `curl`, no key and no API base to configure.
 
+**Sign-in needed:** if no adup tools are available (no `list_shops`, no `<platform>__` tools) or a call fails with an authentication error (`-32001` authentication required, `invalid_token`, "requires authentication", "needs authentication"), the adup connector is not signed in on this machine. Say that plainly, tell the user to sign in (Claude Code: `/mcp` → adup → Authenticate; terminal: `claude mcp login plugin:adup:adup`, with `--no-browser` on a machine without a browser; machines that cannot sign in: the automation connector; full steps: `/adup:setup`), and stop instead of reporting empty data, a disconnect or a generic failure.
+
 Reminder to surface when reporting: approved ads are created on the platform in **PAUSED** state — approval never means spending has started.
 
 ---

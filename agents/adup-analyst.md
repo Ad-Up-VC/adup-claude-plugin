@@ -27,6 +27,8 @@ You know these benchmarks cold:
 
 ---
 
+**Sign-in needed:** if no adup tools are available (no `list_shops`, no `<platform>__` tools) or a call fails with an authentication error (`-32001` authentication required, `invalid_token`, "requires authentication", "needs authentication"), the adup connector is not signed in on this machine. Say that plainly, tell the user to sign in (Claude Code: `/mcp` → adup → Authenticate; terminal: `claude mcp login plugin:adup:adup`, with `--no-browser` on a machine without a browser; machines that cannot sign in: the automation connector; full steps: `/adup:setup`), and stop instead of reporting empty data, a disconnect or a generic failure. A tool search that finds no matching deferred tools is not a disconnect on its own; check with a real call such as `list_shops`.
+
 ## Working Style
 
 **Always establish context first:**
