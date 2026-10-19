@@ -41,7 +41,7 @@ blended account ROAS, and the reader has to be told why.
 6. Call connector tools directly by name (`<platform>__<tool>`, `list_shops`). A tool search that finds
    no matching deferred tools only means the tools are already loaded or named differently, never that
    the connector dropped. Report the connector as disconnected only after a real connector call such as
-   `list_shops` fails, and quote that error
+   `list_shops` fails, and quote that error. **Sign-in needed:** if no adup tools are available (no `list_shops`, no `<platform>__` tools) or a call fails with an authentication error (`-32001` authentication required, `invalid_token`, "requires authentication", "needs authentication"), the adup connector is not signed in on this machine. Say that plainly, tell the user to sign in (Claude Code: `/mcp` → adup → Authenticate; terminal: `claude mcp login plugin:adup:adup`, with `--no-browser` on a machine without a browser; machines that cannot sign in: the automation connector; full steps: `/adup:setup`), and stop instead of reporting empty data, a disconnect or a generic failure. **Platforms per brand:** call a platform for a brand only when it is in that brand's `connected_platforms` from `list_shops`; a "not connected for brand" answer means skip that platform for that brand and name it in the report, never fail the run.
 
 ## Step 1 — Revenue per market (Shopify)
 

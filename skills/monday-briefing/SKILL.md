@@ -12,7 +12,7 @@ description: Generate a per-client executive briefing for the start of the week.
 - All platform tools are namespaced `platform__tool` on the aggregated `adup` connector
 - Period: last 7 days vs previous 7 days
 - Pull data from ALL connected platforms per shop
-- Call connector tools directly by name (`<platform>__<tool>`, `list_shops`). A tool search that finds no matching deferred tools only means the tools are already loaded or named differently, never that the connector dropped. Report the connector as disconnected only after a real connector call such as `list_shops` fails, and quote that error
+- Call connector tools directly by name (`<platform>__<tool>`, `list_shops`). A tool search that finds no matching deferred tools only means the tools are already loaded or named differently, never that the connector dropped. Report the connector as disconnected only after a real connector call such as `list_shops` fails, and quote that error. **Sign-in needed:** if no adup tools are available (no `list_shops`, no `<platform>__` tools) or a call fails with an authentication error (`-32001` authentication required, `invalid_token`, "requires authentication", "needs authentication"), the adup connector is not signed in on this machine. Say that plainly, tell the user to sign in (Claude Code: `/mcp` → adup → Authenticate; terminal: `claude mcp login plugin:adup:adup`, with `--no-browser` on a machine without a browser; machines that cannot sign in: the automation connector; full steps: `/adup:setup`), and stop instead of reporting empty data, a disconnect or a generic failure. **Platforms per brand:** call a platform for a brand only when it is in that brand's `connected_platforms` from `list_shops`; a "not connected for brand" answer means skip that platform for that brand and name it in the report, never fail the run.
 
 ---
 
@@ -20,7 +20,7 @@ description: Generate a per-client executive briefing for the start of the week.
 
 For each active shop, pull performance data from all connected platforms:
 
-### Facebook Ads
+### Facebook Ads (if connected)
 - `facebook__get_campaign_performance_metrics(time_range={...}, shop_slug="<slug>")` for campaign-level metrics
 - `facebook__get_ad_insights` for detailed conversion data, one row per campaign per week. Always pass `fields` — without it every row also carries the raw `actions` / `cost_per_action_type` arrays (~4 KB a row) and the size-bounded answer holds only about ten campaigns:
   ```
@@ -38,7 +38,7 @@ For each active shop, pull performance data from all connected platforms:
 - **Page through it:** when the answer's LAST element is a `{"_truncated": true, "_next_after": "<cursor>", ...}` marker instead of a row, drop the marker and call again with the same arguments plus `after="<cursor>"`, until an answer ends without one (at most 10 pages per shop). If it is still truncated, say the Facebook numbers are incomplete rather than presenting them as the account total
 - Compare last 7 days vs previous 7 days
 
-### Google Ads
+### Google Ads (if connected)
 - `google_ads__get_google_ads_campaign_performance(start_date="...", end_date="...", shop_slug="<slug>")` for all active campaigns
 - Remember: all monetary values in micros — divide by 1,000,000
 

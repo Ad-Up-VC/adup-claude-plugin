@@ -54,6 +54,8 @@ acme-nl/                              ← workspace root = ONE shop (agency: sib
 
 ### Step 1 — Pick the shop
 
+**Sign-in needed:** if no adup tools are available (no `list_shops`, no `<platform>__` tools) or a call fails with an authentication error (`-32001` authentication required, `invalid_token`, "requires authentication", "needs authentication"), the adup connector is not signed in on this machine. Say that plainly, tell the user to sign in (Claude Code: `/mcp` → adup → Authenticate; terminal: `claude mcp login plugin:adup:adup`, with `--no-browser` on a machine without a browser; machines that cannot sign in: the automation connector; full steps: `/adup:setup`), and stop instead of reporting empty data, a disconnect or a generic failure.
+
 Call `list_shops` on the adup connector. Show the list and ask which client this workspace is for (skip the question for solo accounts with one shop). Then call `set_active_shop(shop_slug="<slug>")` — this is **required for tool discovery**, not just routing: until a shop is active, an agency key sees only the six virtual tools and no `facebook__*` / `tiktok__*` tools at all. Every platform call afterwards still passes `shop_slug="<slug>"` explicitly (the ambient active shop is per API key and races with concurrent runs).
 
 ### Step 2 — Pick the folder
