@@ -12,7 +12,7 @@ description: Monitor ad accounts for anomalies every 3 hours. Detects spend spik
 - All platform tools are namespaced `platform__tool` on the aggregated `adup` connector
 - Pull today's data with hourly/daily granularity
 - Compare against 7-day rolling averages
-- Call connector tools directly by name (`<platform>__<tool>`, `list_shops`). A tool search that finds no matching deferred tools only means the tools are already loaded or named differently, never that the connector dropped. Report the connector as disconnected only after a real connector call such as `list_shops` fails, and quote that error. **Sign-in needed:** if no adup tools are available (no `list_shops`, no `<platform>__` tools) or a call fails with an authentication error (`-32001` authentication required, `invalid_token`, "requires authentication", "needs authentication"), the adup connector is not signed in on this machine. Say that plainly, tell the user to sign in (Claude Code: `/mcp` → adup → Authenticate; terminal: `claude mcp login plugin:adup:adup`, with `--no-browser` on a machine without a browser; machines that cannot sign in: the automation connector; full steps: `/adup:setup`), and stop instead of reporting empty data, a disconnect or a generic failure.
+- Call connector tools directly by name (`<platform>__<tool>`, `list_shops`). A tool search that finds no matching deferred tools only means the tools are already loaded or named differently, never that the connector dropped. Report the connector as disconnected only after a real connector call such as `list_shops` fails, and quote that error. **Sign-in needed:** if no adup tools are available (no `list_shops`, no `<platform>__` tools) or a call fails with an authentication error (`-32001` authentication required, `invalid_token`, "requires authentication", "needs authentication"), the adup connector is not signed in on this machine. Say that plainly, tell the user to sign in (Claude Code: `/mcp` → adup → Authenticate; terminal: `claude mcp login plugin:adup:adup`, with `--no-browser` on a machine without a browser; machines that cannot sign in: the automation connector; full steps: `/adup:setup`), and stop instead of reporting empty data, a disconnect or a generic failure. **Platforms per brand:** call a platform for a brand only when it is in that brand's `connected_platforms` from `list_shops`; a "not connected for brand" answer means skip that platform for that brand and name it in the report, never fail the run.
 
 ---
 
@@ -20,7 +20,7 @@ description: Monitor ad accounts for anomalies every 3 hours. Detects spend spik
 
 For each active shop, pull recent data from all connected platforms:
 
-### Facebook Ads
+### Facebook Ads (if connected)
 - `facebook__get_campaign_performance_metrics(time_range={...}, shop_slug="<slug>")` for today and last 7 days
 - `facebook__get_ad_insights` for daily granularity — one row per campaign per day. Ask only for the columns this check reads; without `fields` every row also carries the raw `actions` / `cost_per_action_type` arrays (~4 KB a row), and the size-bounded answer then holds only about ten rows:
 
@@ -39,7 +39,7 @@ For each active shop, pull recent data from all connected platforms:
   `purchases` / `leads` / `registrations` are counts the tool derives from `actions`; a missing key means 0 that day. CPA = `spend` ÷ the campaign's conversion count.
 - **Page through the answer.** It holds at most `limit` rows (default 500) and ~40,000 characters. When its LAST element is a marker `{"_truncated": true, "_next_after": "<cursor>", ...}` instead of a row, drop the marker and call again with the **same arguments** plus `after="<cursor>"`; repeat until an answer ends without a marker. Stop after **10 pages** for one shop: if the last page is still truncated, report that shop's Facebook data as incomplete (say so in the output) and narrow the follow-up by `campaign_id` rather than judging anomalies on a partial set
 
-### Google Ads
+### Google Ads (if connected)
 - `google_ads__get_google_ads_campaign_performance(start_date="...", end_date="...", shop_slug="<slug>")` for today and last 7 days
 - All monetary values in micros — divide by 1,000,000
 

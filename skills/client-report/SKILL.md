@@ -71,7 +71,7 @@ There are two delivery paths. Choose ONE up front:
 7. Call connector tools directly by name (`<platform>__<tool>`, `list_shops`). A tool search that finds
    no matching deferred tools only means the tools are already loaded or named differently, never that
    the connector dropped. Report the connector as disconnected only after a real connector call such as
-   `list_shops` fails, and quote that error. **Sign-in needed:** if no adup tools are available (no `list_shops`, no `<platform>__` tools) or a call fails with an authentication error (`-32001` authentication required, `invalid_token`, "requires authentication", "needs authentication"), the adup connector is not signed in on this machine. Say that plainly, tell the user to sign in (Claude Code: `/mcp` → adup → Authenticate; terminal: `claude mcp login plugin:adup:adup`, with `--no-browser` on a machine without a browser; machines that cannot sign in: the automation connector; full steps: `/adup:setup`), and stop instead of reporting empty data, a disconnect or a generic failure.
+   `list_shops` fails, and quote that error. **Sign-in needed:** if no adup tools are available (no `list_shops`, no `<platform>__` tools) or a call fails with an authentication error (`-32001` authentication required, `invalid_token`, "requires authentication", "needs authentication"), the adup connector is not signed in on this machine. Say that plainly, tell the user to sign in (Claude Code: `/mcp` → adup → Authenticate; terminal: `claude mcp login plugin:adup:adup`, with `--no-browser` on a machine without a browser; machines that cannot sign in: the automation connector; full steps: `/adup:setup`), and stop instead of reporting empty data, a disconnect or a generic failure. **Platforms per brand:** call a platform for a brand only when it is in that brand's `connected_platforms` from `list_shops`; a "not connected for brand" answer means skip that platform for that brand and name it in the report, never fail the run.
 
 ---
 
@@ -79,7 +79,7 @@ There are two delivery paths. Choose ONE up front:
 
 Pull data from EVERY connected platform. Every data tool is **namespaced `platform__tool`** and takes an explicit `shop_slug` on every call. (Only the virtual tools — `list_shops`, `set_active_shop`, `create_report`, `get_kpi`, `get_report_template`, `get_report_branding`, plus the two reads used in Pre-flight 2b, `get_agent_runs` / `get_agent_output` — are unprefixed.)
 
-### Facebook & Instagram Ads
+### Facebook & Instagram Ads (if connected)
 ```
 facebook__get_campaign_performance_metrics(time_range={...}, shop_slug="<slug>")
 facebook__get_ad_insights(time_range={...}, shop_slug="<slug>", metric_categories=["performance", "conversion", "standard_events"])
@@ -88,7 +88,7 @@ facebook__get_ad_insights(time_range={...}, shop_slug="<slug>", metric_categorie
 - Pull both current and comparison period for WoW/MoM delta
 - Check for learning phase via `facebook__get_adsets(shop_slug="<slug>")` — flag but don't judge
 
-### Google Ads
+### Google Ads (if connected)
 ```
 google_ads__get_google_ads_account_currency(shop_slug="<slug>")
 google_ads__get_google_ads_campaign_performance(start_date="...", end_date="...", shop_slug="<slug>")
