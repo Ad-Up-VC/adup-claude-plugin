@@ -10,17 +10,17 @@ description: Analyse creative performance across formats, content types, and cop
 - All platform tools are namespaced `platform__tool` on the aggregated `adup` connector
 - Default lookback: 30 days. State the assumption if user doesn't specify
 - Pull ad-level data with creative details from all connected platforms
-- Call connector tools directly by name (`<platform>__<tool>`, `list_shops`). A tool search that finds no matching deferred tools only means the tools are already loaded or named differently, never that the connector dropped. Report the connector as disconnected only after a real connector call such as `list_shops` fails, and quote that error
+- Call connector tools directly by name (`<platform>__<tool>`, `list_shops`). A tool search that finds no matching deferred tools only means the tools are already loaded or named differently, never that the connector dropped. Report the connector as disconnected only after a real connector call such as `list_shops` fails, and quote that error. **Sign-in needed:** if no adup tools are available (no `list_shops`, no `<platform>__` tools) or a call fails with an authentication error (`-32001` authentication required, `invalid_token`, "requires authentication", "needs authentication"), the adup connector is not signed in on this machine. Say that plainly, tell the user to sign in (Claude Code: `/mcp` → adup → Authenticate; terminal: `claude mcp login plugin:adup:adup`, with `--no-browser` on a machine without a browser; machines that cannot sign in: the automation connector; full steps: `/adup:setup`), and stop instead of reporting empty data, a disconnect or a generic failure. **Platforms per brand:** call a platform for a brand only when it is in that brand's `connected_platforms` from `list_shops`; a "not connected for brand" answer means skip that platform for that brand and name it in the report, never fail the run.
 
 ---
 
 ## Step 1 — Pull Creative Performance Data
 
 ### Facebook/Instagram Ads
-- `facebook__get_ad_insights(time_range={...}, shop_slug="<slug>", metric_categories=["performance", "conversion"])` for ad-level performance
+- `facebook__get_ad_insights(time_range={...}, shop_slug="<slug>", time_increment=7, metric_categories=["performance", "conversion"], fields=["campaign_id", "campaign_name", "ad_id", "ad_name", "date_start", "date_stop", "account_currency", "spend", "impressions", "clicks", "ctr", "cpc", "cpm", "frequency", "purchases", "leads", "registrations", "purchase_roas"])` for weekly (WoW) performance. Always pass `fields`: without it every row also carries the raw `actions` / `cost_per_action_type` arrays (~4 KB a row) and the size-bounded answer holds only about ten rows. `purchases` / `leads` / `registrations` are derived from `actions` (missing key = 0). Without an `ad_id` the rows are per **campaign**, not per ad — pass `ad_id="<id>"` for one ad's series, and take the per-creative view from `facebook__analyze_creative_performance`
+- **Page through it:** when the answer's LAST element is a `{"_truncated": true, "_next_after": "<cursor>", ...}` marker instead of a row, drop the marker and call again with the same arguments plus `after="<cursor>"`, until an answer ends without one (at most 10 pages). If still truncated, say the playbook rests on partial data
 - `facebook__get_ads(shop_slug="<slug>")` to get creative details: image_url, body, title, call_to_action_type, object_type
 - `facebook__analyze_creative_performance(lookback_days=30, shop_slug="<slug>")` for creative-level breakdowns — note this tool takes `lookback_days` (plus optional `min_impressions`, `min_conversions`), **not** a `time_range` object
-- Include WoW trend data with `time_increment=7`
 
 ### Google Ads
 - `google_ads__get_google_ads_ad_performance(start_date="...", end_date="...", shop_slug="<slug>")` for ad-level metrics
