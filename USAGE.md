@@ -162,7 +162,7 @@ vendor APIs). The tool list is authoritative. §4 lists the shapes that catch pe
 | Platform | Date arguments |
 |---|---|
 | Facebook (insights) | `time_range` object: `{"since": "2026-08-01", "until": "2026-08-31"}` |
-| Facebook (`ads_insights_get`) | neither — `date_preset` + `time_increment` |
+| Facebook (`ads_insights_get`) | flat `since` / `until` strings, or a `date_preset`; `time_increment` is a string (`"daily"`, `"weekly"`) |
 | Facebook (analysis) | no dates — `lookback_days` on `analyze_creative_performance`, `detect_ad_fatigue` |
 | Facebook (`get_budget_pacing`) | `date_range` as a **string**: `"this_month"`, `"last_30d"`, `"this_week"` |
 | Google Ads · TikTok | flat `start_date` / `end_date` strings, `YYYY-MM-DD` |
@@ -173,6 +173,14 @@ vendor APIs). The tool list is authoritative. §4 lists the shapes that catch pe
 
 Other things that bite:
 
+- **Facebook insights answers are bounded — ask for less, then page.** `facebook__get_ad_insights`
+  and `facebook__ads_insights_get` return at most `limit` rows (default 500) and ~40,000
+  characters. Without `fields`, a `get_ad_insights` row also carries the raw `actions` /
+  `cost_per_action_type` arrays (~4 KB), so an answer holds only about ten rows. Pass `fields`
+  (on `get_ad_insights` it filters each row to exactly those keys, so include any breakdown
+  key such as `country`; `metric_categories=["performance"]` drops the conversion arrays from
+  the request). When the answer's last element is a `{"_truncated": true, "_next_after": …}`
+  marker, call again with the same arguments plus `after=<_next_after>`; no marker means done.
 - **GA4 reporting tools require four arguments, not two.** Every GA4 reporting tool requires
   `user_prompt` (the question in natural language), `time_range`, **`dimensions` and
   `metrics`** — a call with only a prompt and dates fails validation.
@@ -311,12 +319,14 @@ weekly/monthly reporting tasks for brands Tara already reports on, and `/adup:cl
 | `-32602 No shop selected` | No `shop_slug`, no active shop, and more than one accessible | Pass `shop_slug` or call `set_active_shop` |
 | `-32602 The active brand on this API key is "x", and <platform> is not available for it` | A call without `shop_slug` landed on the active brand, which lacks that platform (or, with `tool '…' is not available for it`, that tool). The message lists your brands that have the platform. The active brand is shared by every session on the key, so another session may have changed it | Pass `shop_slug` on the call, e.g. one of the brands the message lists |
 | `-32602 Active shop is being changed concurrently on this API key` | Another session on the same key is switching the active brand, so a call without `shop_slug` could read another brand's data. Nothing was called | Pass `shop_slug` explicitly on this call |
-| `-32602 Tool 'x' is not available for this brand (y)` | With an explicit `shop_slug` (or your only brand): the tool is not in your tool access for that brand, because the platform is not connected there or the tool is switched off | Check `connected_platforms` from `list_shops`; if connected, ask an owner to adjust Tool Access |
+| `-32602 Tool 'x' is not available for this brand (y)` | The platform is connected for that brand, but this tool is switched off in Tool Access | Ask an owner to adjust Tool Access |
 | `-32602 <platform> is not part of your platform access` | The brand has the platform, but your member access excludes it | Ask your agency owner to grant it |
 | `-32603 Could not check tool access for brand "x" right now (temporary)` | The tool-access lookup failed; this is not a verdict on the tool | Retry the call |
 | `-32004 blocked by your organisation's MCP Control Center` | Policy, not a failure | Ask an owner to adjust Tool Access |
 | `-32005` | Per-employee rate limit reached | Slow down; limits are configurable |
-| `-32601 Platform x not connected for shop y` | The brand has not connected that platform | Connect it in the portal |
+| `-32601 <platform> is not connected for brand <slug>. Connect or reconnect it in Tara under Integrations, or pick a brand that has it.` | You named a brand that has not connected that platform; this answer comes before any tool access check | Connect or reconnect the platform in Tara under Integrations, or pick a brand whose `connected_platforms` lists it. In a loop over brands, skip that platform for that brand |
+| Only one tool listed, `get_plan_status`, titled "No active ADUP subscription" | The workspace has no active plan, so no data tools are served | Choose or renew a plan in Tara; signing in again does not help |
+| No adup tools at all, or `-32001` authentication required / `invalid_token` | The connector is not signed in on this machine | Sign in: `/mcp` → adup → Authenticate, or `claude mcp login plugin:adup:adup` (`--no-browser` without a browser); see `/adup:setup` |
 | `-32603 Upstream <platform> returned 4xx/5xx` | The vendor API answered with an error | Read the message — usually an account condition |
 
 **A platform error is not a platform outage.** In the last production sweep, 21 of 21 failures

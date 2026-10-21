@@ -12,7 +12,7 @@ description: Analyse Facebook and Instagram ad performance using Meta-native ana
 - Default to last 30 days if no date range specified — state the assumption
 - Facebook monetary values are in account currency (not micros — no conversion needed)
 - Cross-reference your recommendations with performance data trends — frame suggestions as testable hypotheses
-- Call connector tools directly by name (`facebook__<tool>`, `list_shops`). A tool search that finds no matching deferred tools only means the tools are already loaded or named differently, never that the connector dropped. Report the connector as disconnected only after a real connector call such as `list_shops` fails, and quote that error
+- Call connector tools directly by name (`facebook__<tool>`, `list_shops`). A tool search that finds no matching deferred tools only means the tools are already loaded or named differently, never that the connector dropped. Report the connector as disconnected only after a real connector call such as `list_shops` fails, and quote that error. **Sign-in needed:** if no adup tools are available (no `list_shops`, no `<platform>__` tools) or a call fails with an authentication error (`-32001` authentication required, `invalid_token`, "requires authentication", "needs authentication"), the adup connector is not signed in on this machine. Say that plainly, tell the user to sign in (Claude Code: `/mcp` → adup → Authenticate; terminal: `claude mcp login plugin:adup:adup`, with `--no-browser` on a machine without a browser; machines that cannot sign in: the automation connector; full steps: `/adup:setup`), and stop instead of reporting empty data, a disconnect or a generic failure.
 
 ---
 
@@ -95,9 +95,24 @@ Returns: spend, impressions, link clicks, CTR, CPC, purchases, ROAS per campaign
 facebook__get_ad_insights(
   shop_slug="<slug>",
   time_range={"since": "YYYY-MM-DD", "until": "YYYY-MM-DD"},
-  campaign_id="<id_if_known>"
+  campaign_id="<id_if_known>",
+  metric_categories=["performance", "conversion"],
+  fields=["campaign_id", "campaign_name", "date_start", "date_stop", "account_currency",
+          "spend", "impressions", "reach", "frequency", "clicks", "ctr", "cpc", "cpm",
+          "purchases", "add_to_cart", "checkout_started", "leads", "registrations",
+          "purchase_roas"]
 )
 ```
+Pass `fields` on account-wide calls: without it every row also carries the raw `actions` /
+`cost_per_action_type` arrays (~4 KB a row), and the size-bounded answer holds only about ten
+campaigns. `purchases`, `add_to_cart`, `checkout_started`, `leads` and `registrations` are counts
+the tool derives from `actions` (a missing key means 0); `clicks`/`ctr`/`cpc` here are Clicks (all).
+Drop `fields` only for a single `campaign_id`/`ad_id` when you need the full action breakdown.
+
+**Paging.** The answer holds at most `limit` rows (default 500) and ~40,000 characters. When its
+LAST element is a `{"_truncated": true, "_next_after": "<cursor>", ...}` marker instead of a row,
+drop the marker and call again with the same arguments plus `after="<cursor>"`, until an answer
+ends without one (at most 10 pages). If it is still truncated, say the totals are partial.
 
 **Conversion funnel (ViewContent → Purchase):**
 ```
