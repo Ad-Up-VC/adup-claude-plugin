@@ -1,7 +1,7 @@
 {
   "name": "adup",
   "description": "Connect Claude Code to your entire marketing stack. Sign in with your Tara account and query Facebook Ads, Google Ads, GA4, Google Search Console, LinkedIn Ads, HubSpot, and Intercom using natural language. Built for performance marketers and agencies.",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "author": {
     "name": "ADUP",
     "email": "info@adup.io"
