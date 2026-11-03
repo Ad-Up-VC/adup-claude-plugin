@@ -91,8 +91,26 @@ credential on disk is the one thing this release must not leave behind. Runs eve
    PY
    for PROFILE_FILE in "$HOME/.zshrc" "$HOME/.bashrc"; do
      [ -f "$PROFILE_FILE" ] || continue
-     grep -vE '^export (ADUP_API_KEY|ADUP_GATEWAY_BASE|ADUP_API_BASE)=' "$PROFILE_FILE" \
-       > "$PROFILE_FILE.tmp" && mv "$PROFILE_FILE.tmp" "$PROFILE_FILE"
+     ADUP_RE='^export (ADUP_API_KEY|ADUP_GATEWAY_BASE|ADUP_API_BASE)='
+     # Nothing to remove: leave the file untouched.
+     grep -qE "$ADUP_RE" "$PROFILE_FILE" || continue
+     ADUP_TMP="$PROFILE_FILE.adup-tmp"
+     # grep -v exits 1 when every line matched (empty output): that is success. 2 is an error.
+     grep -vE "$ADUP_RE" "$PROFILE_FILE" > "$ADUP_TMP"
+     if [ $? -gt 1 ]; then
+       rm -f "$ADUP_TMP"
+       echo "$PROFILE_FILE: could not read the file, nothing changed"
+       continue
+     fi
+     # Rewrite in place so a symlinked dotfile stays a symlink and keeps its permissions.
+     REMOVED=$(grep -E "$ADUP_RE" "$PROFILE_FILE" | sed 's/=.*//; s/^export //' | tr '\n' ' ')
+     cat "$ADUP_TMP" > "$PROFILE_FILE"
+     rm -f "$ADUP_TMP"
+     if grep -qE "$ADUP_RE" "$PROFILE_FILE"; then
+       echo "$PROFILE_FILE: FAILED to remove the old ADUP lines; remove them by hand"
+     else
+       echo "$PROFILE_FILE: removed $REMOVED"
+     fi
    done
    ```
 
