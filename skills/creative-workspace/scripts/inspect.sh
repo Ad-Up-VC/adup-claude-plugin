@@ -26,7 +26,7 @@ fi
 
 bytes=$(wc -c < "$FILE" | tr -d '[:space:]')
 mime=$(file --brief --mime-type "$FILE" 2>/dev/null || echo "application/octet-stream")
-checksum=$(shasum -a 256 "$FILE" | awk '{print $1}')
+checksum=$(shasum -a 256 < "$FILE" | awk '{print $1}')
 
 width="null"
 height="null"
