@@ -84,5 +84,24 @@ if [ "$width" != "null" ] && [ "$height" != "null" ]; then
   }')
 fi
 
+# Escape a string for a JSON string value: backslash, double quote and
+# control characters (< 0x20) become JSON escapes.
+json_escape() {
+  printf '%s' "$1" | LC_ALL=C awk 'BEGIN { RS = "\001"; ORS = ""
+    for (i = 1; i < 32; i++) ctl[sprintf("%c", i)] = sprintf("\\u%04x", i)
+    ctl["\n"] = "\\n"; ctl["\t"] = "\\t"; ctl["\r"] = "\\r"
+  }
+  { if (NR > 1) printf "\\u0001"
+    n = length($0)
+    for (i = 1; i <= n; i++) {
+      c = substr($0, i, 1)
+      if (c == "\\") printf "\\\\"
+      else if (c == "\"") printf "\\\""
+      else if (c in ctl) printf "%s", ctl[c]
+      else printf "%s", c
+    }
+  }'
+}
+
 printf '{"path": "%s", "bytes": %s, "mime": "%s", "width": %s, "height": %s, "duration_s": %s, "aspect_label": %s, "checksum": "%s", "server_will_validate": %s}\n' \
-  "$FILE" "$bytes" "$mime" "$width" "$height" "$duration_s" "$aspect_label" "$checksum" "$server_will_validate"
+  "$(json_escape "$FILE")" "$bytes" "$(json_escape "$mime")" "$width" "$height" "$duration_s" "$aspect_label" "$(json_escape "$checksum")" "$server_will_validate"
